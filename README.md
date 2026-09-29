@@ -59,4 +59,4 @@ For production, use HTTPS, keep `.env` outside version control, and configure a 
 
 ## GPS attendance
 
-Both student attendance endpoints now enforce the same server-side GPS rules. The student must provide valid coordinates with GPS accuracy of **100 meters or better** and must be within the radius configured by the lecturer. The screens show the calculated distance from the class before submitting attendance. Browser geolocation requires HTTPS in production (localhost is also allowed by modern browsers).
+Both student attendance endpoints now enforce the same server-side GPS rules. The student must provide valid coordinates with GPS accuracy of **100 meters or better** and must be within the radius configured by the lecturer. Lecturers can choose an attendance radius from **10 to 1000 meters** when starting a session. The scanning screens show a live visual distance indicator against that custom radius before submitting attendance. Browser geolocation requires HTTPS in production (localhost is also allowed by modern browsers).

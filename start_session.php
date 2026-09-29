@@ -85,9 +85,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         $message = "Unable to get your location. Please allow GPS/location access.";
 
-    } elseif ($radius <= 0) {
+    } elseif ($radius < 10 || $radius > 1000) {
 
-        $message = "Please enter a valid attendance radius.";
+        $message = "Attendance radius must be between 10 and 1000 meters.";
 
     } else {
 

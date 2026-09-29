@@ -1033,6 +1033,28 @@ window.addEventListener("beforeunload", function () {
     let lastPreviewToken = '';
     let submitting = false;
 
+    function renderDistanceIndicator(distance, radius, accuracy) {
+        let indicator = document.getElementById('distanceIndicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'distanceIndicator';
+            indicator.className = 'mt-3';
+            distanceStatus.insertAdjacentElement('afterend', indicator);
+        }
+        const percentage = Math.min(100, Math.max(0, (distance / radius) * 100));
+        const inside = distance <= radius && accuracy <= 100;
+        const color = inside ? '#198754' : '#dc3545';
+        indicator.innerHTML = `
+            <div class="d-flex justify-content-between small mb-1">
+                <span>${inside ? 'Inside attendance radius' : 'Outside attendance radius'}</span>
+                <strong>${Math.round(distance)}m / ${radius}m</strong>
+            </div>
+            <div style="height:12px;background:#e9ecef;border-radius:999px;overflow:hidden">
+                <div style="height:100%;width:${percentage}%;background:${color};transition:width .35s ease,background .35s ease"></div>
+            </div>
+            <div class="small text-muted mt-1">GPS accuracy: ${Math.round(accuracy)}m</div>`;
+    }
+
     function distanceMeters(lat1, lon1, lat2, lon2) {
         const radians = Math.PI / 180;
         const a = Math.sin((lat2 - lat1) * radians / 2) ** 2
@@ -1067,6 +1089,7 @@ window.addEventListener("beforeunload", function () {
         const withinRadius = distance <= Number(data.radius) && accuracy <= 100;
         distanceStatus.textContent = `Distance from class: ${Math.round(distance)}m | Allowed: ${data.radius}m`;
         distanceStatus.className = `small mt-2 fw-semibold ${withinRadius ? 'text-success' : 'text-danger'}`;
+        renderDistanceIndicator(distance, Number(data.radius), accuracy);
         submitButton.disabled = !withinRadius;
         return withinRadius;
     }
