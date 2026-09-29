@@ -4,6 +4,7 @@ session_start();
 header('Permissions-Policy: geolocation=(self)');
 include "db.php";
 require_once "includes/geofence.php";
+require_once "includes/attendance_qr.php";
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
     die("Access Denied - Students Only");
@@ -60,64 +61,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         |--------------------------------------------------------------------------
         */
 
-        $stmt = $conn->prepare("
-            SELECT
-                id,
-                course_id,
-                session_code,
-                qr_token,
-                expires_at,
-                status,
-                latitude,
-                longitude,
-                radius
-            FROM attendance_sessions
-            WHERE qr_token = ?
-              AND status = 'active'
-            LIMIT 1
-        ");
+        $session = findSessionByAttendanceToken($conn, $qr_token);
 
-        $result = false;
-
-        if (!$stmt) {
-
-            $message =
-                "Database error while checking the attendance session: "
-                . $conn->error;
-
-            $message_type = "danger";
-
-        } else {
-
-            $stmt->bind_param("s", $qr_token);
-
-            if (!$stmt->execute()) {
-
-                $message =
-                    "Database error while checking the attendance session: "
-                    . $stmt->error;
-
-                $message_type = "danger";
-
-            } else {
-
-                $result = $stmt->get_result();
-
-            }
-        }
-
-        if ($result === false) {
-
-            // Database error message already prepared above.
-
-        } elseif ($result->num_rows === 0) {
+        if ($session === null) {
 
             $message = "Invalid or closed attendance session.";
             $message_type = "danger";
 
         } else {
-
-            $session = $result->fetch_assoc();
 
             $session_id = $session['id'];
             $course_id = $session['course_id'];
@@ -277,8 +228,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
         }
 
-
-        $stmt->close();
         }
     }
 }

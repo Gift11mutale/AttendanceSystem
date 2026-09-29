@@ -5,6 +5,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 include "db.php";
+require_once "includes/attendance_qr.php";
 
 
 /*
@@ -24,6 +25,8 @@ $message = "";
 $session_code = "";
 $expires_at = "";
 $qr_token = "";
+$created_session_id = 0;
+$qr_refresh_seconds = DEFAULT_QR_REFRESH_SECONDS;
 
 $latitude = "";
 $longitude = "";
@@ -64,6 +67,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $longitude = $_POST['longitude'] ?? '';
 
     $radius = intval($_POST['radius'] ?? 100);
+    $qr_refresh_seconds = normalizeQrRefreshSeconds((int) ($_POST['qr_refresh_seconds'] ?? DEFAULT_QR_REFRESH_SECONDS));
 
 
     /*
@@ -178,6 +182,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     course_id,
                     session_code,
                     qr_token,
+                    qr_refresh_seconds,
                     session_date,
                     expires_at,
                     status,
@@ -186,14 +191,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     longitude,
                     radius
                 )
-                VALUES (?, ?, ?, CURDATE(), ?, 'active', ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, CURDATE(), ?, 'active', ?, ?, ?, ?, ?)
             ");
 
             $stmt->bind_param(
-                "isssiddi",
+                "issisiddi",
                 $course_id,
                 $session_code,
                 $qr_token,
+                $qr_refresh_seconds,
                 $expires_at,
                 $created_by,
                 $latitude,
@@ -203,6 +209,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 
             if ($stmt->execute()) {
+
+                $created_session_id = (int) $conn->insert_id;
 
                 $message =
                     "Attendance Session Started Successfully!";
@@ -560,6 +568,27 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                                 <!-- START BUTTON -->
 
+                                <div class="mb-4">
+                                    <label for="qr_refresh_seconds" class="form-label fw-semibold">
+                                        QR Code Refresh Interval
+                                    </label>
+                                    <div class="input-group">
+                                        <input
+                                            type="number"
+                                            class="form-control"
+                                            name="qr_refresh_seconds"
+                                            id="qr_refresh_seconds"
+                                            value="<?php echo (int) $qr_refresh_seconds; ?>"
+                                            min="15"
+                                            max="300"
+                                            required>
+                                        <span class="input-group-text">seconds</span>
+                                    </div>
+                                    <div class="form-text">
+                                        The QR changes every 15–300 seconds. Shorter intervals reduce sharing.
+                                    </div>
+                                </div>
+
                                 <button
                                     type="submit"
                                     id="startSessionBtn"
@@ -735,19 +764,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 
                                 <p>
-
-                                    <strong>
-                                        QR Token:
-                                    </strong>
-
+                                    <strong>QR Rotation:</strong>
                                     <br>
-
-                                    <?php
-                                    echo htmlspecialchars(
-                                        $qr_token
-                                    );
-                                    ?>
-
+                                    Every <?php echo (int) $qr_refresh_seconds; ?> seconds
                                 </p>
 
 
@@ -818,10 +837,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                 </h5>
 
 
+                                <div class="small text-muted mb-2" id="qrRotationStatus">Rotating QR code...</div>
                                 <img
-                                    src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=<?php echo urlencode($qr_token); ?>"
+                                    id="attendanceQrImage"
+                                    src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=<?php echo urlencode(currentAttendanceQrToken($qr_token, $created_session_id, $qr_refresh_seconds)); ?>"
                                     alt="Attendance QR Code"
                                     class="img-fluid">
+
+                                <form method="post" action="end_session.php" class="mt-3" onsubmit="return confirm('End this attendance session now? Students will no longer be able to scan it.');">
+                                    <input type="hidden" name="session_id" value="<?php echo (int) $created_session_id; ?>">
+                                    <button type="submit" class="btn btn-danger">
+                                        <i class="bi bi-stop-circle me-2"></i>End Attendance Session
+                                    </button>
+                                </form>
 
 
                             </div>
@@ -1104,6 +1132,38 @@ document
     );
 
 </script>
+
+<?php if ($created_session_id > 0): ?>
+<script>
+(() => {
+    const sessionId = <?php echo (int) $created_session_id; ?>;
+    const image = document.getElementById('attendanceQrImage');
+    const status = document.getElementById('qrRotationStatus');
+    if (!image || !status) return;
+
+    async function refreshQr() {
+        try {
+            const response = await fetch(`session_qr.php?session_id=${sessionId}`, { cache: 'no-store' });
+            const data = await response.json();
+            if (!response.ok || !data.ok) {
+                status.textContent = data.message || 'This session has ended.';
+                status.className = 'small text-danger mb-2';
+                return;
+            }
+            image.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(data.token)}&t=${Date.now()}`;
+            status.textContent = `New QR code in ${data.seconds_remaining}s (refreshes every ${data.refresh_seconds}s)`;
+            status.className = 'small text-success mb-2';
+        } catch (error) {
+            status.textContent = 'Unable to refresh the QR code. Check your connection.';
+            status.className = 'small text-danger mb-2';
+        }
+    }
+
+    refreshQr();
+    window.setInterval(refreshQr, 1000);
+})();
+</script>
+<?php endif; ?>
 
 
 </body>

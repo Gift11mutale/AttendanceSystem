@@ -62,3 +62,7 @@ For production, use HTTPS, keep `.env` outside version control, and configure a 
 Both student attendance endpoints now enforce the same server-side GPS rules. The student must provide valid coordinates with GPS accuracy of **200 meters or better** and must be within the radius configured by the lecturer. Lecturers can choose an attendance radius from **10 to 1000 meters** when starting a session. The scanning screens show a live visual distance indicator against that custom radius before submitting attendance. Browser geolocation requires HTTPS in production (localhost is also allowed by modern browsers).
 
 On a phone, open the site with `https://scanattend.site.je`, enable Location Services and choose **Allow** or **Allow while using the app** for the browser. If permission was previously blocked, open the browser site settings for `scanattend.site.je`, reset Location to Ask/Allow, then reload the scan page.
+
+## Rotating classroom QR codes
+
+Run `database/attendance_qr_rotation.sql` once against the application database. Lecturers can choose a QR refresh interval from **15 to 300 seconds** when starting a session. The QR value is generated server-side and changes automatically; the current and immediately previous interval are accepted to allow for scan/network delay. Students must still be logged in, enrolled, and submit before the attendance session expires. Lecturers can end an active session immediately with the **End Attendance Session** button.

@@ -11,6 +11,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
 
 require_once 'db.php';
 require_once 'includes/geofence.php';
+require_once 'includes/attendance_qr.php';
 $token = trim((string) ($_POST['qr_token'] ?? ''));
 if ($token === '') {
     http_response_code(422);
@@ -18,11 +19,7 @@ if ($token === '') {
     exit;
 }
 
-$stmt = $conn->prepare("SELECT id, latitude, longitude, radius, expires_at FROM attendance_sessions WHERE qr_token = ? AND status = 'active' LIMIT 1");
-$stmt->bind_param('s', $token);
-$stmt->execute();
-$session = $stmt->get_result()->fetch_assoc() ?: null;
-$stmt->close();
+$session = findSessionByAttendanceToken($conn, $token);
 
 if (!$session || (!empty($session['expires_at']) && strtotime((string) $session['expires_at']) < time())) {
     http_response_code(404);

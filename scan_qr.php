@@ -4,6 +4,7 @@ session_start();
 header('Permissions-Policy: geolocation=(self)');
 include "db.php";
 require_once "includes/geofence.php";
+require_once "includes/attendance_qr.php";
 
 // Restrict to students only
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'student') {
@@ -60,22 +61,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         |--------------------------------------------------------------------------
         */
 
-        $stmt = $conn->prepare("
-            SELECT *
-            FROM attendance_sessions
-            WHERE qr_token = ?
-            AND status = 'active'
-        ");
+        $session = findSessionByAttendanceToken($conn, $qr_token);
 
-        $stmt->bind_param("s", $qr_token);
-        $stmt->execute();
-
-        $result = $stmt->get_result();
-
-
-        if ($result->num_rows == 1) {
-
-            $session = $result->fetch_assoc();
+        if ($session !== null) {
 
             $session_id = $session['id'];
             $course_id = $session['course_id'];
@@ -260,8 +248,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 "Invalid or Closed Session.";
         }
 
-
-        $stmt->close();
         }
     }
 }
