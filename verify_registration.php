@@ -9,9 +9,23 @@ if (empty($_SESSION['csrf_token'])) {
 
 $requestId = (int) ($_SESSION['registration_request_id'] ?? 0);
 $request = $requestId ? getRegistrationRequest($conn, $requestId) : null;
+$email = trim((string) ($_SESSION['registration_email'] ?? ''));
 if (!$request || $request['used_at'] !== null) {
-    header('Location: register.php');
-    exit;
+    $request = $email !== '' ? getLatestRegistrationRequestForEmail($conn, $email) : null;
+    if ($request) {
+        $_SESSION['registration_request_id'] = (int) $request['id'];
+    } else {
+        header('Location: register.php');
+        exit;
+    }
+}
+if ($email !== '' && $request['email'] !== $email) {
+    $request = getLatestRegistrationRequestForEmail($conn, $email);
+    if (!$request) {
+        header('Location: register.php');
+        exit;
+    }
+    $_SESSION['registration_request_id'] = (int) $request['id'];
 }
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

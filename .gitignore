@@ -1,10 +1,27 @@
 .env
 .env.*
 !.env.example
+
+# Composer / PHP
 /vendor/
+/composer.lock
+
+# Logs
 /logs/
 *.log
+
+# Local database dumps
 /database/backups/
 /database/*.sql.gz
 /database/*_dump.sql
 /database/dump*.sql
+
+# Editor / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.tmp
+*.bak

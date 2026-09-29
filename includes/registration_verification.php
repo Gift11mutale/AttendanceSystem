@@ -49,3 +49,18 @@ function getRegistrationRequest(mysqli $conn, int $requestId): ?array
     $stmt->close();
     return $row;
 }
+
+function getLatestRegistrationRequestForEmail(mysqli $conn, string $email): ?array
+{
+    $email = trim($email);
+    if ($email === '') {
+        return null;
+    }
+
+    $stmt = $conn->prepare('SELECT id, fullname, email, password_hash, role, otp_hash, expires_at, attempts, used_at FROM registration_otps WHERE email = ? AND used_at IS NULL ORDER BY id DESC LIMIT 1');
+    $stmt->bind_param('s', $email);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc() ?: null;
+    $stmt->close();
+    return $row;
+}
