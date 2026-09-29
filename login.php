@@ -3,6 +3,7 @@ session_start();
 include "db.php";
 
 $error = "";
+$success = isset($_GET['reset']) && $_GET['reset'] === 'success' ? "Your password has been reset. You can now sign in." : "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
@@ -185,6 +186,16 @@ Sign in to continue
 
 <?php endif; ?>
 
+<?php if(!empty($success)): ?>
+
+<div class="alert alert-success">
+
+<?php echo htmlspecialchars($success); ?>
+
+</div>
+
+<?php endif; ?>
+
 <form method="POST" id="loginForm">
         <!-- Email -->
 
@@ -267,7 +278,7 @@ Sign in to continue
 
         </div>
 
-        <a href="#"
+        <a href="forgot_password.php"
            class="forgot-link">
 
             Forgot Password?

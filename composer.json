@@ -1,0 +1,7 @@
+{
+    "name": "gift11mutale/attendance-system",
+    "description": "Smart Attendance and Learning Insights System",
+    "require": {
+        "phpmailer/phpmailer": "^6.9"
+    }
+}

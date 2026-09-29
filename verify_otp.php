@@ -1,0 +1,36 @@
+<?php
+session_start();
+require_once 'db.php';
+require_once 'includes/password_reset.php';
+
+$requestId = (int) ($_SESSION['password_reset_request_id'] ?? 0);
+$request = $requestId ? getActiveResetRequest($conn, $requestId) : null;
+if (!$request || $request['used_at'] !== null) {
+    header('Location: forgot_password.php');
+    exit;
+}
+$error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $otp = preg_replace('/\D+/', '', (string) ($_POST['otp'] ?? ''));
+    $expired = strtotime((string) $request['expires_at']) < time();
+    if ($expired || (int) $request['attempts'] >= 5) {
+        $error = 'This code has expired or reached its maximum attempts. Request a new code.';
+    } elseif (strlen($otp) !== 6 || !password_verify($otp, (string) $request['otp_hash'])) {
+        $stmt = $conn->prepare('UPDATE password_reset_otps SET attempts = attempts + 1 WHERE id = ?');
+        $stmt->bind_param('i', $requestId);
+        $stmt->execute();
+        $stmt->close();
+        $error = 'That code is not valid. Please check the email and try again.';
+        $request['attempts']++;
+    } else {
+        $stmt = $conn->prepare('UPDATE password_reset_otps SET verified_at = NOW() WHERE id = ?');
+        $stmt->bind_param('i', $requestId);
+        $stmt->execute();
+        $stmt->close();
+        $_SESSION['password_reset_verified'] = true;
+        header('Location: reset_password.php');
+        exit;
+    }
+}
+?>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Verify Code | Smart Attendance</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link rel="stylesheet" href="assets/css/style.css"></head><body><div class="container-fluid login-page"><div class="row min-vh-100"><div class="col-lg-6 left-panel d-none d-lg-flex"><div class="branding"><img src="assets/images/kmu%20logo.png" class="logo" alt="KMU Logo"><h1>Smart Attendance &amp; Learning Insights System</h1><h4>Kapasa Makasa University</h4><p class="tagline">Secure • Intelligent • Reliable</p></div></div><div class="col-lg-6 d-flex align-items-center justify-content-center"><main class="login-card shadow-lg"><div class="text-center"><img src="assets/images/kmu%20logo.png" class="mobile-logo mb-3" alt="KMU Logo"><h2>Verify Your Code</h2><p class="text-muted">Enter the 6-digit code sent to <strong><?php echo htmlspecialchars((string) ($_SESSION['password_reset_email'] ?? 'your email')); ?></strong>.</p></div><?php if ($error): ?><div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div><?php endif; ?><form method="post"><div class="mb-4"><label class="form-label fw-semibold" for="otp">Verification Code</label><input class="form-control text-center" style="letter-spacing:8px;font-size:1.4rem" id="otp" name="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required autofocus></div><button class="btn btn-success w-100 login-btn" type="submit">Verify Code</button></form><div class="text-center mt-4"><a href="forgot_password.php" class="register-link">Request a new code</a></div></main></div></div></div></body></html>
