@@ -11,6 +11,8 @@ Registration now requires email verification before a row is created in `users`:
 
 The registration OTP and pending account data are stored in `registration_otps`.
 
+Both registration and password-reset verification screens include a resend endpoint protected by CSRF tokens. Resends are limited to **one every 60 seconds** and **five OTP records per email/account per hour**.
+
 Password reset also uses Gmail SMTP:
 
 The login page now includes an OTP-based password reset flow:
