@@ -194,36 +194,31 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 VALUES (?, ?, ?, ?, CURDATE(), ?, 'active', ?, ?, ?, ?, ?)
             ");
 
-            $stmt->bind_param(
-                "issisiddi",
-                $course_id,
-                $session_code,
-                $qr_token,
-                $qr_refresh_seconds,
-                $expires_at,
-                $created_by,
-                $latitude,
-                $longitude,
-                $radius
-            );
-
-
-            if ($stmt->execute()) {
-
-                $created_session_id = (int) $conn->insert_id;
-
-                $message =
-                    "Attendance Session Started Successfully!";
-
+            if (!$stmt) {
+                $message = "Error preparing attendance session: " . $conn->error;
             } else {
+                $stmt->bind_param(
+                    "issisiddi",
+                    $course_id,
+                    $session_code,
+                    $qr_token,
+                    $qr_refresh_seconds,
+                    $expires_at,
+                    $created_by,
+                    $latitude,
+                    $longitude,
+                    $radius
+                );
 
-                $message =
-                    "Error creating attendance session: "
-                    . $stmt->error;
+                if ($stmt->execute()) {
+                    $created_session_id = (int) $conn->insert_id;
+                    $message = "Attendance Session Started Successfully!";
+                } else {
+                    $message = "Error creating attendance session: " . $stmt->error;
+                }
+
+                $stmt->close();
             }
-
-
-            $stmt->close();
 
         }
 
