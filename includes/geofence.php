@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-const MAX_GPS_ACCURACY_METERS = 100.0;
+const MAX_GPS_ACCURACY_METERS = 200.0;
 
 function validGpsCoordinates(float $latitude, float $longitude): bool
 {

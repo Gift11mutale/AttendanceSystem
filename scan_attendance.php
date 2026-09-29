@@ -637,7 +637,7 @@ scanner.render(
             preview.insertAdjacentElement('afterend', indicator);
         }
         const percentage = Math.min(100, Math.max(0, (distance / radius) * 100));
-        const inside = distance <= radius && accuracy <= 100;
+        const inside = distance <= radius && accuracy <= 200;
         const color = inside ? '#198754' : '#dc3545';
         indicator.innerHTML = `
             <div class="d-flex justify-content-between small mb-1">
@@ -678,7 +678,7 @@ scanner.render(
             currentPosition = await locate();
         }
         const accuracy = currentPosition.coords.accuracy;
-        if (!Number.isFinite(accuracy) || accuracy <= 0 || accuracy > 100) {
+        if (!Number.isFinite(accuracy) || accuracy <= 0 || accuracy > 200) {
             throw new Error(`GPS accuracy is too low (${Math.round(accuracy || 0)}m). Move to an open area and try again.`);
         }
         preview.textContent = `GPS ready. Accuracy: ${Math.round(accuracy)}m`;

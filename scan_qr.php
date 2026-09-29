@@ -904,11 +904,11 @@ function getStudentLocation() {
             |--------------------------------------------------------------------------
             */
 
-            submitBtn.disabled = accuracy > 100;
+            submitBtn.disabled = accuracy > 200;
 
-            if (accuracy > 100) {
+            if (accuracy > 200) {
                 locationStatus.textContent +=
-                    " (too low; accuracy must be 100 meters or better)";
+                    " (too low; accuracy must be 200 meters or better)";
                 locationStatus.className = "text-danger";
             }
 
@@ -1042,7 +1042,7 @@ window.addEventListener("beforeunload", function () {
             distanceStatus.insertAdjacentElement('afterend', indicator);
         }
         const percentage = Math.min(100, Math.max(0, (distance / radius) * 100));
-        const inside = distance <= radius && accuracy <= 100;
+        const inside = distance <= radius && accuracy <= 200;
         const color = inside ? '#198754' : '#dc3545';
         indicator.innerHTML = `
             <div class="d-flex justify-content-between small mb-1">
@@ -1086,7 +1086,7 @@ window.addEventListener("beforeunload", function () {
             Number(latitudeField.value), Number(longitudeField.value)
         );
         const accuracy = Number(accuracyField.value);
-        const withinRadius = distance <= Number(data.radius) && accuracy <= 100;
+        const withinRadius = distance <= Number(data.radius) && accuracy <= 200;
         distanceStatus.textContent = `Distance from class: ${Math.round(distance)}m | Allowed: ${data.radius}m`;
         distanceStatus.className = `small mt-2 fw-semibold ${withinRadius ? 'text-success' : 'text-danger'}`;
         renderDistanceIndicator(distance, Number(data.radius), accuracy);
