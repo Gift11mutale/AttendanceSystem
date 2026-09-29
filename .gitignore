@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+/vendor/
+/logs/
+*.log
+/database/backups/
+/database/*.sql.gz
+/database/*_dump.sql
+/database/dump*.sql
