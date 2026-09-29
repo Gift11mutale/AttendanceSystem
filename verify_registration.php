@@ -86,3 +86,19 @@ $resendCooldown = max(0, 60 - (time() - (int) ($_SESSION['registration_otp_last_
     const timer = setInterval(tick, 1000);
 })();
 </script>
+<script>
+(() => {
+    const input = document.querySelector('input[name="otp"]');
+    if (!input) return;
+    const form = input.closest('form');
+    let submitted = false;
+    input.addEventListener('input', () => {
+        input.value = input.value.replace(/\D/g, '').slice(0, 6);
+        if (input.value.length === 6 && !submitted) {
+            submitted = true;
+            input.disabled = true;
+            form.submit();
+        }
+    });
+})();
+</script>
