@@ -21,7 +21,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $qr_token = trim($_POST['qr_token'] ?? '');
     $student_latitude = $_POST['latitude'] ?? '';
     $student_longitude = $_POST['longitude'] ?? '';
-    $student_accuracy = $_POST['accuracy'] ?? '';
 
     /*
     |--------------------------------------------------------------------------
@@ -36,10 +35,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } elseif (
         $student_latitude === '' ||
         $student_longitude === '' ||
-        $student_accuracy === '' ||
         !is_numeric($student_latitude) ||
-        !is_numeric($student_longitude) ||
-        !is_numeric($student_accuracy)
+        !is_numeric($student_longitude)
     ) {
 
         $message = "Your location could not be detected. Please allow location access.";
@@ -48,11 +45,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         $student_latitude = (float) $student_latitude;
         $student_longitude = (float) $student_longitude;
-        $student_accuracy = (float) $student_accuracy;
-        $gpsError = validateStudentGps($student_latitude, $student_longitude, $student_accuracy);
-
-        if ($gpsError !== null) {
-            $message = $gpsError;
+        if (!validGpsCoordinates($student_latitude, $student_longitude)) {
+            $message = "The GPS coordinates are invalid. Please try again.";
         } else {
 
         /*
@@ -553,13 +547,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     id="longitude"
                                 >
 
-                                <input
-                                    type="hidden"
-                                    name="accuracy"
-                                    id="accuracy"
-                                >
-
-
                                 <!-- SUBMIT -->
 
                                 <button
@@ -798,8 +785,6 @@ const latitudeInput =
 const longitudeInput =
     document.getElementById("longitude");
 
-const accuracyInput =
-    document.getElementById("accuracy");
 
 const locationTitle =
     document.getElementById("locationTitle");
@@ -854,9 +839,6 @@ function getStudentLocation() {
             const longitude =
                 position.coords.longitude;
 
-            const accuracy =
-                position.coords.accuracy;
-
 
             /*
             |--------------------------------------------------------------------------
@@ -869,9 +851,6 @@ function getStudentLocation() {
 
             longitudeInput.value =
                 longitude;
-
-            accuracyInput.value =
-                accuracy;
 
 
             /*
@@ -888,9 +867,7 @@ function getStudentLocation() {
 
 
             locationStatus.textContent =
-                "GPS accuracy: "
-                + Math.round(accuracy)
-                + " meters";
+                "Location detected. Distance will be checked against the class radius.";
 
 
             /*
@@ -899,13 +876,7 @@ function getStudentLocation() {
             |--------------------------------------------------------------------------
             */
 
-            submitBtn.disabled = accuracy > 200;
-
-            if (accuracy > 200) {
-                locationStatus.textContent +=
-                    " (too low; accuracy must be 200 meters or better)";
-                locationStatus.className = "text-danger";
-            }
+            submitBtn.disabled = false;
 
         },
 
@@ -1022,13 +993,12 @@ window.addEventListener("beforeunload", function () {
     const tokenInput = document.getElementById('qr_token');
     const latitudeField = document.getElementById('latitude');
     const longitudeField = document.getElementById('longitude');
-    const accuracyField = document.getElementById('accuracy');
     const submitButton = document.getElementById('submitBtn');
     const distanceStatus = document.getElementById('distanceStatus');
     let lastPreviewToken = '';
     let submitting = false;
 
-    function renderDistanceIndicator(distance, radius, accuracy) {
+    function renderDistanceIndicator(distance, radius) {
         let indicator = document.getElementById('distanceIndicator');
         if (!indicator) {
             indicator = document.createElement('div');
@@ -1037,7 +1007,7 @@ window.addEventListener("beforeunload", function () {
             distanceStatus.insertAdjacentElement('afterend', indicator);
         }
         const percentage = Math.min(100, Math.max(0, (distance / radius) * 100));
-        const inside = distance <= radius && accuracy <= 200;
+        const inside = distance <= radius;
         const color = inside ? '#198754' : '#dc3545';
         indicator.innerHTML = `
             <div class="d-flex justify-content-between small mb-1">
@@ -1047,7 +1017,7 @@ window.addEventListener("beforeunload", function () {
             <div style="height:12px;background:#e9ecef;border-radius:999px;overflow:hidden">
                 <div style="height:100%;width:${percentage}%;background:${color};transition:width .35s ease,background .35s ease"></div>
             </div>
-            <div class="small text-muted mt-1">GPS accuracy: ${Math.round(accuracy)}m</div>`;
+            <div class="small text-muted mt-1">GPS accuracy is not used as a requirement.</div>`;
     }
 
     function distanceMeters(lat1, lon1, lat2, lon2) {
@@ -1080,11 +1050,10 @@ window.addEventListener("beforeunload", function () {
             Number(data.latitude), Number(data.longitude),
             Number(latitudeField.value), Number(longitudeField.value)
         );
-        const accuracy = Number(accuracyField.value);
-        const withinRadius = distance <= Number(data.radius) && accuracy <= 200;
+        const withinRadius = distance <= Number(data.radius);
         distanceStatus.textContent = `Distance from class: ${Math.round(distance)}m | Allowed: ${data.radius}m`;
         distanceStatus.className = `small mt-2 fw-semibold ${withinRadius ? 'text-success' : 'text-danger'}`;
-        renderDistanceIndicator(distance, Number(data.radius), accuracy);
+        renderDistanceIndicator(distance, Number(data.radius));
         submitButton.disabled = !withinRadius;
         return withinRadius;
     }

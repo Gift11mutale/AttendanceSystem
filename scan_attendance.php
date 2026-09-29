@@ -27,7 +27,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $qr_token = trim($_POST['qr_token'] ?? '');
     $student_latitude = $_POST['latitude'] ?? '';
     $student_longitude = $_POST['longitude'] ?? '';
-    $student_accuracy = $_POST['accuracy'] ?? '';
 
     if ($qr_token === '') {
 
@@ -37,21 +36,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     } elseif (
         $student_latitude === '' ||
         $student_longitude === '' ||
-        $student_accuracy === '' ||
         !is_numeric($student_latitude) ||
-        !is_numeric($student_longitude) ||
-        !is_numeric($student_accuracy)
+        !is_numeric($student_longitude)
     ) {
-        $message = "Your location and GPS accuracy are required. Please allow location access.";
+        $message = "Your location is required. Please allow location access.";
         $message_type = "danger";
     } else {
         $student_latitude = (float) $student_latitude;
         $student_longitude = (float) $student_longitude;
-        $student_accuracy = (float) $student_accuracy;
-        $gpsError = validateStudentGps($student_latitude, $student_longitude, $student_accuracy);
-
-        if ($gpsError !== null) {
-            $message = $gpsError;
+        if (!validGpsCoordinates($student_latitude, $student_longitude)) {
+            $message = "The GPS coordinates are invalid. Please try again.";
             $message_type = "danger";
         } else {
 
@@ -457,9 +451,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                     <input type="hidden" name="latitude" id="alternateLatitude">
                     <input type="hidden" name="longitude" id="alternateLongitude">
-                    <input type="hidden" name="accuracy" id="alternateAccuracy">
-
-
                     <button
                         type="submit"
                         class="btn btn-kmu w-100"
@@ -578,7 +569,7 @@ scanner.render(
     let currentPosition = null;
     let submitting = false;
 
-    function renderDistanceIndicator(distance, radius, accuracy) {
+    function renderDistanceIndicator(distance, radius) {
         let indicator = document.getElementById('distanceIndicator');
         if (!indicator) {
             indicator = document.createElement('div');
@@ -587,7 +578,7 @@ scanner.render(
             preview.insertAdjacentElement('afterend', indicator);
         }
         const percentage = Math.min(100, Math.max(0, (distance / radius) * 100));
-        const inside = distance <= radius && accuracy <= 200;
+        const inside = distance <= radius;
         const color = inside ? '#198754' : '#dc3545';
         indicator.innerHTML = `
             <div class="d-flex justify-content-between small mb-1">
@@ -597,7 +588,7 @@ scanner.render(
             <div style="height:12px;background:#e9ecef;border-radius:999px;overflow:hidden">
                 <div style="height:100%;width:${percentage}%;background:${color};transition:width .35s ease,background .35s ease"></div>
             </div>
-            <div class="small text-muted mt-1">GPS accuracy: ${Math.round(accuracy)}m</div>`;
+            <div class="small text-muted mt-1">Distance is checked against the class radius.</div>`;
     }
 
     function distanceMeters(lat1, lon1, lat2, lon2) {
@@ -631,11 +622,7 @@ scanner.render(
             preview.textContent = 'Detecting your location...';
             currentPosition = await locate();
         }
-        const accuracy = currentPosition.coords.accuracy;
-        if (!Number.isFinite(accuracy) || accuracy <= 0 || accuracy > 200) {
-            throw new Error(`GPS accuracy is too low (${Math.round(accuracy || 0)}m). Move to an open area and try again.`);
-        }
-        preview.textContent = `GPS ready. Accuracy: ${Math.round(accuracy)}m`;
+        preview.textContent = 'Location ready. Distance will be checked against the class radius.';
         return currentPosition;
     }
 
@@ -661,9 +648,9 @@ scanner.render(
                 Number(data.latitude), Number(data.longitude),
                 position.coords.latitude, position.coords.longitude
             );
-            preview.textContent = `Distance from class: ${Math.round(distance)}m | Allowed: ${data.radius}m | GPS accuracy: ${Math.round(position.coords.accuracy)}m`;
+            preview.textContent = `Distance from class: ${Math.round(distance)}m | Allowed: ${data.radius}m`;
             preview.className = `alert small ${distance <= Number(data.radius) ? 'alert-success' : 'alert-danger'}`;
-            renderDistanceIndicator(distance, Number(data.radius), position.coords.accuracy);
+            renderDistanceIndicator(distance, Number(data.radius));
             if (distance > Number(data.radius)) {
                 preview.textContent += ' — attendance cannot be submitted outside the allowed radius.';
                 return;
@@ -672,7 +659,7 @@ scanner.render(
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = 'scan_attendance.php';
-            [['qr_token', token], ['latitude', position.coords.latitude], ['longitude', position.coords.longitude], ['accuracy', position.coords.accuracy]].forEach(([name, value]) => {
+            [['qr_token', token], ['latitude', position.coords.latitude], ['longitude', position.coords.longitude]].forEach(([name, value]) => {
                 const input = document.createElement('input');
                 input.type = 'hidden';
                 input.name = name;
@@ -691,7 +678,7 @@ scanner.render(
 
     navigator.geolocation && locate().then((position) => {
         currentPosition = position;
-        preview.textContent = `GPS ready. Accuracy: ${Math.round(position.coords.accuracy)}m`;
+        preview.textContent = 'Location ready. Distance will be checked against the class radius.';
         preview.className = 'alert alert-info small';
     }).catch((error) => {
         preview.textContent = error.message || 'Please allow location access.';
