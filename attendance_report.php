@@ -12,6 +12,7 @@ $lecturer_id = $_SESSION['user_id'];
 <!DOCTYPE html>
 <html>
 <head>
+<link rel="icon" type="image/png" href="assets/images/favicon.png">
 <title>Attendance Report</title>
 <link rel="stylesheet" href="main.css/main.css">
 </head>

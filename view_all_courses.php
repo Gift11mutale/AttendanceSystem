@@ -12,6 +12,7 @@ $result = $conn->query("SELECT * FROM courses");
 <!DOCTYPE html>
 <html>
 <head>
+<link rel="icon" type="image/png" href="assets/images/favicon.png">
     <title>Manage Courses</title>
     <link rel="stylesheet" href="main.css/main.css">
 </head>

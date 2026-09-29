@@ -12,6 +12,7 @@ $result = $conn->query("SELECT id, fullname, email, role FROM users");
 <!DOCTYPE html>
 <html>
 <head>
+<link rel="icon" type="image/png" href="assets/images/favicon.png">
     <title>Manage Users</title>
     <link rel="stylesheet" href="main.css/main.css">
 </head>

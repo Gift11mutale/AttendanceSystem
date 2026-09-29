@@ -16,7 +16,7 @@ header('Expires: 0');
 
 <title>Smart Attendance & Learning Insights System</title>
 
-<link rel="icon" href="assets/images/kmu logo.png">
+<link rel="icon" type="image/png" href="assets/images/favicon.png">
 
 <!-- Bootstrap CSS -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">

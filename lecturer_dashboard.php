@@ -76,6 +76,7 @@ if ($chartStmt) {
 <html lang="en">
 
 <head>
+<link rel="icon" type="image/png" href="assets/images/favicon.png">
 
     <meta charset="UTF-8">
 

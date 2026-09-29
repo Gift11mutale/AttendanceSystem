@@ -120,8 +120,7 @@ content="width=device-width, initial-scale=1.0">
 
 <title>Create Account</title>
 
-<link rel="icon"
-href="assets/images/kmu%20logo.png">
+<link rel="icon" type="image/png" href="assets/images/favicon.png">
 
 <!-- Bootstrap -->
 

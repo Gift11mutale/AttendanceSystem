@@ -159,6 +159,7 @@ $percentage = $total_sessions > 0
 <html lang="en">
 
 <head>
+<link rel="icon" type="image/png" href="assets/images/favicon.png">
     <meta charset="UTF-8">
 
     <meta

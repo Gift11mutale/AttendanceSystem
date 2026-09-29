@@ -62,7 +62,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <title>Smart Attendance & Learning Insights System</title>
 
-<link rel="icon" href="assets/images/kmu%20logo.png">
+<link rel="icon" type="image/png" href="assets/images/favicon.png">
 
 <!-- Bootstrap -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">

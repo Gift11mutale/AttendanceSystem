@@ -628,6 +628,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <html lang="en">
 
 <head>
+<link rel="icon" type="image/png" href="assets/images/favicon.png">
 
     <meta charset="UTF-8">
 
