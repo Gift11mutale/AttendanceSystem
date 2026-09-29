@@ -80,3 +80,65 @@ $resendCooldown = max(0, 60 - (time() - (int) ($_SESSION['password_reset_otp_las
     });
 })();
 </script>
+<script>
+(() => {
+    const hidden = document.querySelector('input[name="otp"]');
+    if (!hidden) return;
+    hidden.type = 'hidden';
+    hidden.required = false;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'd-flex justify-content-center gap-2';
+    wrapper.setAttribute('aria-label', 'Six-digit verification code');
+    const boxes = [];
+    let submitted = false;
+
+    for (let index = 0; index < 6; index += 1) {
+        const box = document.createElement('input');
+        box.type = 'text';
+        box.inputMode = 'numeric';
+        box.maxLength = 1;
+        box.className = 'form-control text-center otp-digit';
+        box.style.cssText = 'width:48px;height:56px;font-size:1.5rem;font-weight:600;';
+        box.setAttribute('aria-label', `Verification digit ${index + 1}`);
+        wrapper.appendChild(box);
+        boxes.push(box);
+
+        box.addEventListener('input', () => {
+            box.value = box.value.replace(/\D/g, '').slice(-1);
+            if (box.value && index < 5) boxes[index + 1].focus();
+            hidden.value = boxes.map((digit) => digit.value).join('');
+            if (hidden.value.length === 6 && !submitted) {
+                submitted = true;
+                boxes.forEach((digit) => { digit.readOnly = true; });
+                hidden.form.submit();
+            }
+        });
+
+        box.addEventListener('keydown', (event) => {
+            if (event.key === 'Backspace' && !box.value && index > 0) {
+                boxes[index - 1].focus();
+            }
+        });
+
+        box.addEventListener('paste', (event) => {
+            event.preventDefault();
+            const pasted = (event.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+            pasted.split('').forEach((digit, offset) => {
+                if (boxes[index + offset]) boxes[index + offset].value = digit;
+            });
+            hidden.value = boxes.map((digit) => digit.value).join('');
+            const next = Math.min(index + pasted.length, 5);
+            boxes[next].focus();
+            if (hidden.value.length === 6 && !submitted) {
+                submitted = true;
+                boxes.forEach((digit) => { digit.readOnly = true; });
+                hidden.form.submit();
+            }
+        });
+    }
+
+    hidden.parentNode.insertBefore(wrapper, hidden);
+    boxes[0].focus();
+})();
+</script>
