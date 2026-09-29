@@ -4,6 +4,7 @@ session_start();
 
 include "db.php";
 require_once "includes/registration_verification.php";
+require_once "includes/otp_rate_limit.php";
 
 $message = "";
 $error = "";
@@ -86,6 +87,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $html = '<div style="font-family:Arial,sans-serif;line-height:1.6"><h2>Verify your account</h2><p>Hello ' . $safeName . ',</p><p>Use this verification code to complete your Smart Attendance System registration:</p><p style="font-size:30px;font-weight:bold;letter-spacing:8px">' . $pending['otp'] . '</p><p>This code expires in 10 minutes.</p></div>';
                     $plain = "Your Smart Attendance System registration code is {$pending['otp']}. It expires in 10 minutes.";
                     sendMail($email, $fullname, 'Verify your Smart Attendance System account', $html, $plain);
+                    markOtpResendSent('registration_otp_last_sent');
                     $_SESSION['registration_request_id'] = $pending['id'];
                     $_SESSION['registration_email'] = $email;
                     header('Location: verify_registration.php');

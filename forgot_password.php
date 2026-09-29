@@ -2,6 +2,7 @@
 session_start();
 require_once 'db.php';
 require_once 'includes/password_reset.php';
+require_once 'includes/otp_rate_limit.php';
 
 $message = '';
 $error = '';
@@ -32,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $html = '<div style="font-family:Arial,sans-serif;line-height:1.6"><h2>Password reset code</h2><p>Hello ' . $name . ',</p><p>Use this verification code to reset your Smart Attendance System password:</p><p style="font-size:30px;font-weight:bold;letter-spacing:8px">' . $otp . '</p><p>This code expires in 10 minutes. If you did not request a reset, you can ignore this email.</p></div>';
                     $plain = "Your Smart Attendance System password reset code is {$otp}. It expires in 10 minutes.";
                     sendMail((string) $user['email'], (string) $user['fullname'], 'Your password reset code', $html, $plain);
+                    markOtpResendSent('password_reset_otp_last_sent');
                     $_SESSION['password_reset_request_id'] = $conn->insert_id;
                     $_SESSION['password_reset_email'] = $email;
                     header('Location: verify_otp.php');
