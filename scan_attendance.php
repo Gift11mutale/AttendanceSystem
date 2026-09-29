@@ -556,27 +556,12 @@ function submitQRToken(token) {
         return;
     }
 
-    const form = document.createElement("form");
+    document.getElementById("scannerMessage").innerHTML =
+        "<strong class='text-primary'>Preparing GPS verification...</strong>";
 
-    form.method = "POST";
-
-    form.action = "scan_attendance.php";
-
-
-    const input = document.createElement("input");
-
-    input.type = "hidden";
-
-    input.name = "qr_token";
-
-    input.value = token;
-
-
-    form.appendChild(input);
-
-    document.body.appendChild(form);
-
-    form.submit();
+    window.setTimeout(function () {
+        submitQRToken(token);
+    }, 100);
 
 }
 
@@ -637,6 +622,7 @@ scanner.render(
 <script>
 (() => {
     const preview = document.getElementById('locationPreview');
+    const scannerMessage = document.getElementById('scannerMessage');
     const manualForm = document.getElementById('alternateAttendanceForm');
     const manualToken = manualForm.querySelector('input[name="qr_token"]');
     let currentPosition = null;
@@ -707,6 +693,7 @@ scanner.render(
             return;
         }
         try {
+            scannerMessage.innerHTML = "<strong class='text-primary'>Checking GPS and class distance...</strong>";
             const position = await ensureLocation();
             preview.textContent = 'Checking distance from the class...';
             const response = await fetch('session_location.php', {
@@ -739,8 +726,10 @@ scanner.render(
                 form.appendChild(input);
             });
             document.body.appendChild(form);
+            scannerMessage.innerHTML = "<strong class='text-success'>Location verified. Recording attendance...</strong>";
             form.submit();
         } catch (error) {
+            scannerMessage.innerHTML = "<strong class='text-danger'>Attendance could not be submitted.</strong>";
             preview.textContent = error.message || 'Unable to verify your location.';
             preview.className = 'alert alert-danger small';
         }
