@@ -1,12 +1,18 @@
 <?php
-$host = "localhost";
-$user = "root";
-$password = "";
-$database = "smart_attendance_system";  // your database name
 
-$conn = new mysqli($host, $user, $password, $database);
+mysqli_report(MYSQLI_REPORT_OFF);
 
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+$host = getenv('DB_HOST') ?: 'localhost';
+$user = getenv('DB_USERNAME') ?: 'root';
+$password = getenv('DB_PASSWORD') ?: '';
+$database = getenv('DB_DATABASE') ?: 'smart_attendance_system';
+
+$conn = @new mysqli($host, $user, $password, $database);
+
+if ($conn->connect_errno) {
+    error_log('Database connection failed: ' . $conn->connect_error);
+    http_response_code(500);
+    exit('Database connection failed. Please check the hosting database settings in db.php.');
 }
-?>
+
+$conn->set_charset('utf8mb4');
