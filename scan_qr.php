@@ -2,6 +2,7 @@
 
 session_start();
 include "db.php";
+require_once "includes/geofence.php";
 
 // Restrict to students only
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'student') {
@@ -18,6 +19,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $qr_token = trim($_POST['qr_token'] ?? '');
     $student_latitude = $_POST['latitude'] ?? '';
     $student_longitude = $_POST['longitude'] ?? '';
+    $student_accuracy = $_POST['accuracy'] ?? '';
 
     /*
     |--------------------------------------------------------------------------
@@ -32,8 +34,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } elseif (
         $student_latitude === '' ||
         $student_longitude === '' ||
+        $student_accuracy === '' ||
         !is_numeric($student_latitude) ||
-        !is_numeric($student_longitude)
+        !is_numeric($student_longitude) ||
+        !is_numeric($student_accuracy)
     ) {
 
         $message = "Your location could not be detected. Please allow location access.";
@@ -42,6 +46,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         $student_latitude = (float) $student_latitude;
         $student_longitude = (float) $student_longitude;
+        $student_accuracy = (float) $student_accuracy;
+        $gpsError = validateStudentGps($student_latitude, $student_longitude, $student_accuracy);
+
+        if ($gpsError !== null) {
+            $message = $gpsError;
+        } else {
 
         /*
         |--------------------------------------------------------------------------
@@ -151,45 +161,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         |--------------------------------------------------------------------------
                         */
 
-                        $earth_radius = 6371000;
-
-
-                        $lat1 = deg2rad($class_latitude);
-                        $lat2 = deg2rad($student_latitude);
-
-                        $lat_difference =
-                            deg2rad(
-                                $student_latitude -
-                                $class_latitude
-                            );
-
-                        $lon_difference =
-                            deg2rad(
-                                $student_longitude -
-                                $class_longitude
-                            );
-
-
-                        $a =
-                            sin($lat_difference / 2) *
-                            sin($lat_difference / 2)
-                            +
-                            cos($lat1) *
-                            cos($lat2) *
-                            sin($lon_difference / 2) *
-                            sin($lon_difference / 2);
-
-
-                        $c =
-                            2 *
-                            atan2(
-                                sqrt($a),
-                                sqrt(1 - $a)
-                            );
-
-
-                        $distance =
-                            $earth_radius * $c;
+                        $distance = gpsDistanceMeters(
+                            $class_latitude,
+                            $class_longitude,
+                            $student_latitude,
+                            $student_longitude
+                        );
 
 
                         /*
@@ -284,6 +261,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 
         $stmt->close();
+        }
     }
 }
 
@@ -561,6 +539,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                                                 </div>
 
+                                                <div id="distanceStatus" class="small mt-2 fw-semibold"></div>
+
                                             </div>
 
                                         </div>
@@ -584,6 +564,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     type="hidden"
                                     name="longitude"
                                     id="longitude"
+                                >
+
+                                <input
+                                    type="hidden"
+                                    name="accuracy"
+                                    id="accuracy"
                                 >
 
 
@@ -825,6 +811,9 @@ const latitudeInput =
 const longitudeInput =
     document.getElementById("longitude");
 
+const accuracyInput =
+    document.getElementById("accuracy");
+
 const locationTitle =
     document.getElementById("locationTitle");
 
@@ -886,6 +875,9 @@ function getStudentLocation() {
             longitudeInput.value =
                 longitude;
 
+            accuracyInput.value =
+                accuracy;
+
 
             /*
             |--------------------------------------------------------------------------
@@ -912,7 +904,13 @@ function getStudentLocation() {
             |--------------------------------------------------------------------------
             */
 
-            submitBtn.disabled = false;
+            submitBtn.disabled = accuracy > 100;
+
+            if (accuracy > 100) {
+                locationStatus.textContent +=
+                    " (too low; accuracy must be 100 meters or better)";
+                locationStatus.className = "text-danger";
+            }
 
         },
 
@@ -1023,3 +1021,89 @@ window.addEventListener("beforeunload", function () {
 </body>
 
 </html>
+<script>
+(() => {
+    const formElement = document.getElementById('attendanceForm');
+    const tokenInput = document.getElementById('qr_token');
+    const latitudeField = document.getElementById('latitude');
+    const longitudeField = document.getElementById('longitude');
+    const accuracyField = document.getElementById('accuracy');
+    const submitButton = document.getElementById('submitBtn');
+    const distanceStatus = document.getElementById('distanceStatus');
+    let lastPreviewToken = '';
+    let submitting = false;
+
+    function distanceMeters(lat1, lon1, lat2, lon2) {
+        const radians = Math.PI / 180;
+        const a = Math.sin((lat2 - lat1) * radians / 2) ** 2
+            + Math.cos(lat1 * radians) * Math.cos(lat2 * radians)
+            * Math.sin((lon2 - lon1) * radians / 2) ** 2;
+        return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    async function previewDistance() {
+        const token = tokenInput.value.trim();
+        if (!token || !latitudeField.value || !longitudeField.value) return false;
+        if (token === lastPreviewToken) return true;
+        lastPreviewToken = token;
+        distanceStatus.textContent = 'Checking distance from the class...';
+        distanceStatus.className = 'small mt-2 fw-semibold text-muted';
+        const response = await fetch('session_location.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ qr_token: token })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+            distanceStatus.textContent = data.message || 'Unable to verify the attendance session.';
+            distanceStatus.className = 'small mt-2 fw-semibold text-danger';
+            return false;
+        }
+        const distance = distanceMeters(
+            Number(data.latitude), Number(data.longitude),
+            Number(latitudeField.value), Number(longitudeField.value)
+        );
+        const accuracy = Number(accuracyField.value);
+        const withinRadius = distance <= Number(data.radius) && accuracy <= 100;
+        distanceStatus.textContent = `Distance from class: ${Math.round(distance)}m | Allowed: ${data.radius}m`;
+        distanceStatus.className = `small mt-2 fw-semibold ${withinRadius ? 'text-success' : 'text-danger'}`;
+        submitButton.disabled = !withinRadius;
+        return withinRadius;
+    }
+
+    tokenInput.addEventListener('input', () => {
+        lastPreviewToken = '';
+        previewDistance().catch(() => {
+            distanceStatus.textContent = 'Unable to check the class location.';
+            distanceStatus.className = 'small mt-2 fw-semibold text-danger';
+        });
+    });
+
+    formElement.addEventListener('submit', async (event) => {
+        if (submitting) return;
+        event.preventDefault();
+        if (!tokenInput.value.trim()) {
+            alert('Please scan or enter the QR token first.');
+            return;
+        }
+        try {
+            const allowed = await previewDistance();
+            if (!allowed) return;
+            submitting = true;
+            submitButton.disabled = true;
+            HTMLFormElement.prototype.submit.call(formElement);
+        } catch (error) {
+            distanceStatus.textContent = 'Unable to verify your distance. Please try again.';
+            distanceStatus.className = 'small mt-2 fw-semibold text-danger';
+        }
+    });
+
+    const originalScanSuccess = window.onQrScanSuccess;
+    if (typeof originalScanSuccess === 'function') {
+        window.onQrScanSuccess = function (decodedText) {
+            originalScanSuccess(decodedText);
+            tokenInput.dispatchEvent(new Event('input'));
+        };
+    }
+})();
+</script>

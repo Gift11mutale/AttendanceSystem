@@ -2,6 +2,7 @@
 
 session_start();
 include "db.php";
+require_once "includes/geofence.php";
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
     die("Access Denied - Students Only");
@@ -22,13 +23,35 @@ $message_type = "";
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $qr_token = trim($_POST['qr_token'] ?? '');
+    $student_latitude = $_POST['latitude'] ?? '';
+    $student_longitude = $_POST['longitude'] ?? '';
+    $student_accuracy = $_POST['accuracy'] ?? '';
 
     if ($qr_token === '') {
 
         $message = "No QR code was detected.";
         $message_type = "danger";
 
+    } elseif (
+        $student_latitude === '' ||
+        $student_longitude === '' ||
+        $student_accuracy === '' ||
+        !is_numeric($student_latitude) ||
+        !is_numeric($student_longitude) ||
+        !is_numeric($student_accuracy)
+    ) {
+        $message = "Your location and GPS accuracy are required. Please allow location access.";
+        $message_type = "danger";
     } else {
+        $student_latitude = (float) $student_latitude;
+        $student_longitude = (float) $student_longitude;
+        $student_accuracy = (float) $student_accuracy;
+        $gpsError = validateStudentGps($student_latitude, $student_longitude, $student_accuracy);
+
+        if ($gpsError !== null) {
+            $message = $gpsError;
+            $message_type = "danger";
+        } else {
 
         /*
         |--------------------------------------------------------------------------
@@ -43,7 +66,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 session_code,
                 qr_token,
                 expires_at,
-                status
+                status,
+                latitude,
+                longitude,
+                radius
             FROM attendance_sessions
             WHERE qr_token = ?
               AND status = 'active'
@@ -94,6 +120,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             $session_id = $session['id'];
             $course_id = $session['course_id'];
+            $class_latitude = (float) $session['latitude'];
+            $class_longitude = (float) $session['longitude'];
+            $radius = (int) $session['radius'];
+            $distance = gpsDistanceMeters(
+                $class_latitude,
+                $class_longitude,
+                $student_latitude,
+                $student_longitude
+            );
 
 
             /*
@@ -102,7 +137,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             |--------------------------------------------------------------------------
             */
 
-            if (
+            if ($distance > $radius) {
+                $message = "Attendance rejected. You are approximately "
+                    . round($distance)
+                    . " meters away. You must be within "
+                    . $radius . " meters.";
+                $message_type = "danger";
+            } elseif (
                 !empty($session['expires_at']) &&
                 strtotime($session['expires_at']) < time()
             ) {
@@ -237,6 +278,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 
         $stmt->close();
+        }
     }
 }
 
@@ -451,7 +493,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 </p>
 
 
-                <form method="POST">
+                <form method="POST" id="alternateAttendanceForm">
+
+                    <div id="locationPreview" class="alert alert-info small">Detecting your location...</div>
 
                     <input
                         type="text"
@@ -460,6 +504,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         placeholder="Enter QR token"
                         required
                     >
+
+                    <input type="hidden" name="latitude" id="alternateLatitude">
+                    <input type="hidden" name="longitude" id="alternateLongitude">
+                    <input type="hidden" name="accuracy" id="alternateAccuracy">
 
 
                     <button
@@ -502,6 +550,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <script>
 
 function submitQRToken(token) {
+
+    if (typeof window.__gpsSubmitQRToken === "function") {
+        window.__gpsSubmitQRToken(token);
+        return;
+    }
 
     const form = document.createElement("form");
 
@@ -581,3 +634,109 @@ scanner.render(
 </body>
 
 </html>
+<script>
+(() => {
+    const preview = document.getElementById('locationPreview');
+    const manualForm = document.getElementById('alternateAttendanceForm');
+    const manualToken = manualForm.querySelector('input[name="qr_token"]');
+    let currentPosition = null;
+    let submitting = false;
+
+    function distanceMeters(lat1, lon1, lat2, lon2) {
+        const radians = Math.PI / 180;
+        const a = Math.sin((lat2 - lat1) * radians / 2) ** 2
+            + Math.cos(lat1 * radians) * Math.cos(lat2 * radians)
+            * Math.sin((lon2 - lon1) * radians / 2) ** 2;
+        return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function locate() {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error('GPS is not supported by this browser.'));
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 0
+            });
+        });
+    }
+
+    async function ensureLocation() {
+        if (!currentPosition) {
+            preview.textContent = 'Detecting your location...';
+            currentPosition = await locate();
+        }
+        const accuracy = currentPosition.coords.accuracy;
+        if (!Number.isFinite(accuracy) || accuracy <= 0 || accuracy > 100) {
+            throw new Error(`GPS accuracy is too low (${Math.round(accuracy || 0)}m). Move to an open area and try again.`);
+        }
+        preview.textContent = `GPS ready. Accuracy: ${Math.round(accuracy)}m`;
+        return currentPosition;
+    }
+
+    async function checkAndSubmit(token) {
+        if (submitting) return;
+        token = token.trim();
+        if (!token) {
+            preview.textContent = 'Please scan or enter the QR token first.';
+            return;
+        }
+        try {
+            const position = await ensureLocation();
+            preview.textContent = 'Checking distance from the class...';
+            const response = await fetch('session_location.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ qr_token: token })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) throw new Error(data.message || 'Invalid or expired attendance session.');
+            const distance = distanceMeters(
+                Number(data.latitude), Number(data.longitude),
+                position.coords.latitude, position.coords.longitude
+            );
+            preview.textContent = `Distance from class: ${Math.round(distance)}m | Allowed: ${data.radius}m | GPS accuracy: ${Math.round(position.coords.accuracy)}m`;
+            preview.className = `alert small ${distance <= Number(data.radius) ? 'alert-success' : 'alert-danger'}`;
+            if (distance > Number(data.radius)) {
+                preview.textContent += ' — attendance cannot be submitted outside the allowed radius.';
+                return;
+            }
+            submitting = true;
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'scan_attendance.php';
+            [['qr_token', token], ['latitude', position.coords.latitude], ['longitude', position.coords.longitude], ['accuracy', position.coords.accuracy]].forEach(([name, value]) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = value;
+                form.appendChild(input);
+            });
+            document.body.appendChild(form);
+            form.submit();
+        } catch (error) {
+            preview.textContent = error.message || 'Unable to verify your location.';
+            preview.className = 'alert alert-danger small';
+        }
+    }
+
+    navigator.geolocation && locate().then((position) => {
+        currentPosition = position;
+        preview.textContent = `GPS ready. Accuracy: ${Math.round(position.coords.accuracy)}m`;
+        preview.className = 'alert alert-info small';
+    }).catch((error) => {
+        preview.textContent = error.message || 'Please allow location access.';
+        preview.className = 'alert alert-warning small';
+    });
+
+    manualForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        checkAndSubmit(manualToken.value);
+    });
+
+    window.__gpsSubmitQRToken = checkAndSubmit;
+})();
+</script>

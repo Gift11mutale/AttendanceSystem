@@ -56,3 +56,7 @@ The login page now includes an OTP-based password reset flow:
 4. Make sure the PHP process can read the environment variables and that `vendor/autoload.php` exists.
 
 For production, use HTTPS, keep `.env` outside version control, and configure a real application URL in `APP_URL` if reset links are later added.
+
+## GPS attendance
+
+Both student attendance endpoints now enforce the same server-side GPS rules. The student must provide valid coordinates with GPS accuracy of **100 meters or better** and must be within the radius configured by the lecturer. The screens show the calculated distance from the class before submitting attendance. Browser geolocation requires HTTPS in production (localhost is also allowed by modern browsers).
