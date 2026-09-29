@@ -1,17 +1,20 @@
 <?php
 
+session_start();
+
 include "db.php";
+require_once "includes/registration_verification.php";
 
 $message = "";
 $error = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
-    $fullname = trim($_POST['fullname']);
-    $email = trim($_POST['email']);
-    $role = $_POST['role'];
-    $password = $_POST['password'];
-    $confirm_password = $_POST['confirm_password'];
+    $fullname = trim((string) ($_POST['fullname'] ?? ''));
+    $email = trim((string) ($_POST['email'] ?? ''));
+    $role = (string) ($_POST['role'] ?? '');
+    $password = (string) ($_POST['password'] ?? '');
+    $confirm_password = (string) ($_POST['confirm_password'] ?? '');
 
     // Check empty fields
 
@@ -29,7 +32,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Password confirmation
 
-    elseif ($password != $confirm_password) {
+    elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+
+        $error = "Please enter a valid email address.";
+
+    }
+
+    elseif (!in_array($role, ['student', 'lecturer', 'admin'], true)) {
+
+        $error = "Please select a valid account type.";
+
+    }
+
+    elseif (strlen($password) < 8) {
+
+        $error = "Password must be at least 8 characters long.";
+
+    }
+
+    elseif ($password !== $confirm_password) {
 
         $error = "Passwords do not match.";
 
@@ -55,52 +76,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         else{
 
-            // Encrypt password
-
-            $hashedPassword = password_hash(
-                $password,
-                PASSWORD_DEFAULT
-            );
-
-            // Insert user
-
-            $stmt = $conn->prepare(
-
-                "INSERT INTO users
-                (fullname,email,password,role)
-
-                VALUES(?,?,?,?)"
-
-            );
-
-            $stmt->bind_param(
-
-                "ssss",
-
-                $fullname,
-
-                $email,
-
-                $hashedPassword,
-
-                $role
-
-            );
-
-            if($stmt->execute()){
-
-                $message =
-                "Registration successful! Redirecting to Login...";
-
-                header("refresh:3;url=login.php");
-
-            }
-
-            else{
-
-                $error =
-                "Something went wrong. Please try again.";
-
+            if (!ensureRegistrationOtpTable($conn)) {
+                $error = "Unable to start email verification. Please try again.";
+            } else {
+                try {
+                    $pending = createRegistrationOtp($conn, $fullname, $email, password_hash($password, PASSWORD_DEFAULT), $role);
+                    require_once 'includes/mailer.php';
+                    $safeName = htmlspecialchars($fullname, ENT_QUOTES, 'UTF-8');
+                    $html = '<div style="font-family:Arial,sans-serif;line-height:1.6"><h2>Verify your account</h2><p>Hello ' . $safeName . ',</p><p>Use this verification code to complete your Smart Attendance System registration:</p><p style="font-size:30px;font-weight:bold;letter-spacing:8px">' . $pending['otp'] . '</p><p>This code expires in 10 minutes.</p></div>';
+                    $plain = "Your Smart Attendance System registration code is {$pending['otp']}. It expires in 10 minutes.";
+                    sendMail($email, $fullname, 'Verify your Smart Attendance System account', $html, $plain);
+                    $_SESSION['registration_request_id'] = $pending['id'];
+                    $_SESSION['registration_email'] = $email;
+                    header('Location: verify_registration.php');
+                    exit;
+                } catch (Throwable $exception) {
+                    error_log('Registration verification email failed: ' . $exception->getMessage());
+                    $error = "We could not send the verification code. Check your email details and try again.";
+                }
             }
 
         }

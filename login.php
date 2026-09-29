@@ -3,7 +3,12 @@ session_start();
 include "db.php";
 
 $error = "";
-$success = isset($_GET['reset']) && $_GET['reset'] === 'success' ? "Your password has been reset. You can now sign in." : "";
+$success = '';
+if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
+    $success = "Your password has been reset. You can now sign in.";
+} elseif (isset($_GET['registered']) && $_GET['registered'] === 'success') {
+    $success = "Your account has been verified. You can now sign in.";
+}
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 

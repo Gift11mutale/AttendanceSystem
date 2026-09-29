@@ -1,0 +1,60 @@
+<?php
+session_start();
+require_once 'db.php';
+require_once 'includes/registration_verification.php';
+
+$requestId = (int) ($_SESSION['registration_request_id'] ?? 0);
+$request = $requestId ? getRegistrationRequest($conn, $requestId) : null;
+if (!$request || $request['used_at'] !== null) {
+    header('Location: register.php');
+    exit;
+}
+$error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $otp = preg_replace('/\D+/', '', (string) ($_POST['otp'] ?? ''));
+    $expired = strtotime((string) $request['expires_at']) < time();
+    if ($expired || (int) $request['attempts'] >= 5) {
+        $error = 'This code has expired or reached its maximum attempts. Please register again.';
+    } elseif (strlen($otp) !== 6 || !password_verify($otp, (string) $request['otp_hash'])) {
+        $stmt = $conn->prepare('UPDATE registration_otps SET attempts = attempts + 1 WHERE id = ?');
+        $stmt->bind_param('i', $requestId);
+        $stmt->execute();
+        $stmt->close();
+        $request['attempts']++;
+        $error = 'That code is not valid. Please check your email and try again.';
+    } else {
+        $duplicate = $conn->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+        $duplicate->bind_param('s', $request['email']);
+        $duplicate->execute();
+        $alreadyExists = $duplicate->get_result()->num_rows > 0;
+        $duplicate->close();
+
+        if ($alreadyExists) {
+            $error = 'An account with this email already exists. Please sign in instead.';
+        } else {
+            $conn->begin_transaction();
+            try {
+                $stmt = $conn->prepare('INSERT INTO users (fullname, email, password, role) VALUES (?, ?, ?, ?)');
+                $stmt->bind_param('ssss', $request['fullname'], $request['email'], $request['password_hash'], $request['role']);
+                $stmt->execute();
+                $stmt->close();
+                $used = $conn->prepare('UPDATE registration_otps SET used_at = NOW() WHERE id = ?');
+                $used->bind_param('i', $requestId);
+                $used->execute();
+                $used->close();
+                $conn->commit();
+                unset($_SESSION['registration_request_id'], $_SESSION['registration_email']);
+                header('Location: login.php?registered=success');
+                exit;
+            } catch (Throwable $exception) {
+                $conn->rollback();
+                error_log('Registration activation failed: ' . $exception->getMessage());
+                $error = 'We could not complete registration. Please try again.';
+            }
+        }
+    }
+}
+?>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Verify Registration | Smart Attendance</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"><link rel="stylesheet" href="assets/css/style.css"></head>
+<body><div class="container-fluid login-page"><div class="row min-vh-100"><div class="col-lg-6 left-panel d-none d-lg-flex"><div class="branding"><img src="assets/images/kmu%20logo.png" class="logo" alt="KMU Logo"><h1>Smart Attendance &amp; Learning Insights System</h1><h4>Kapasa Makasa University</h4><p class="tagline">Secure • Intelligent • Reliable</p></div></div><div class="col-lg-6 d-flex align-items-center justify-content-center"><main class="login-card shadow-lg"><div class="text-center"><img src="assets/images/kmu%20logo.png" class="mobile-logo mb-3" alt="KMU Logo"><h2>Verify Your Email</h2><p class="text-muted">Enter the 6-digit code sent to <strong><?php echo htmlspecialchars((string) ($_SESSION['registration_email'] ?? 'your email')); ?></strong> to complete registration.</p></div><?php if ($error): ?><div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div><?php endif; ?><form method="post"><div class="mb-4"><label class="form-label fw-semibold" for="otp">Verification Code</label><input class="form-control text-center" style="letter-spacing:8px;font-size:1.4rem" id="otp" name="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required autofocus></div><button class="btn btn-success w-100 login-btn" type="submit">Verify &amp; Create Account</button></form><div class="text-center mt-4"><a href="register.php" class="register-link">Start registration again</a></div></main></div></div></div></body></html>
