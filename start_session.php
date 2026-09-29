@@ -191,7 +191,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     longitude,
                     radius
                 )
-                VALUES (?, ?, ?, ?, CURDATE(), ?, 'active', ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, CURDATE(), ?, 'active', ?, ?, ?, ?)
             ");
 
             if (!$stmt) {
