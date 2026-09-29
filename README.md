@@ -60,3 +60,5 @@ For production, use HTTPS, keep `.env` outside version control, and configure a 
 ## GPS attendance
 
 Both student attendance endpoints now enforce the same server-side GPS rules. The student must provide valid coordinates with GPS accuracy of **200 meters or better** and must be within the radius configured by the lecturer. Lecturers can choose an attendance radius from **10 to 1000 meters** when starting a session. The scanning screens show a live visual distance indicator against that custom radius before submitting attendance. Browser geolocation requires HTTPS in production (localhost is also allowed by modern browsers).
+
+On a phone, open the site with `https://scanattend.site.je`, enable Location Services and choose **Allow** or **Allow while using the app** for the browser. If permission was previously blocked, open the browser site settings for `scanattend.site.je`, reset Location to Ask/Allow, then reload the scan page.

@@ -1,6 +1,7 @@
 <?php
 
 session_start();
+header('Permissions-Policy: geolocation=(self)');
 include "db.php";
 require_once "includes/geofence.php";
 
@@ -660,6 +661,10 @@ scanner.render(
 
     function locate() {
         return new Promise((resolve, reject) => {
+            if (!window.isSecureContext) {
+                reject(new Error('Location requires HTTPS. Open https://scanattend.site.je in your browser.'));
+                return;
+            }
             if (!navigator.geolocation) {
                 reject(new Error('GPS is not supported by this browser.'));
                 return;

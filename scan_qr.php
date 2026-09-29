@@ -1,6 +1,7 @@
 <?php
 
 session_start();
+header('Permissions-Policy: geolocation=(self)');
 include "db.php";
 require_once "includes/geofence.php";
 
@@ -822,6 +823,14 @@ const locationStatus =
 
 
 function getStudentLocation() {
+
+    if (!window.isSecureContext) {
+        locationTitle.textContent = "Secure connection required";
+        locationTitle.className = "text-danger";
+        locationStatus.textContent = "Open this page using https://scanattend.site.je so your browser can request location.";
+        submitBtn.disabled = true;
+        return;
+    }
 
     if (!navigator.geolocation) {
 
