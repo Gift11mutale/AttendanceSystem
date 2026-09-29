@@ -74,7 +74,7 @@ $resendCooldown = max(0, 60 - (time() - (int) ($_SESSION['password_reset_otp_las
         input.value = input.value.replace(/\D/g, '').slice(0, 6);
         if (input.value.length === 6 && !submitted) {
             submitted = true;
-            input.disabled = true;
+            input.readOnly = true;
             form.submit();
         }
     });
