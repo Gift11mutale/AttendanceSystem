@@ -30,12 +30,17 @@ $sql = "
         s.created_at,
         c.course_name,
         c.course_code,
-        COUNT(a.id) AS students_present
+        COUNT(DISTINCT e.student_id) AS students_registered,
+        COUNT(DISTINCT CASE WHEN a.status = 'present' THEN e.student_id END) AS students_present,
+        COUNT(DISTINCT e.student_id) - COUNT(DISTINCT CASE WHEN a.status = 'present' THEN e.student_id END) AS students_absent
     FROM attendance_sessions s
     INNER JOIN courses c
         ON s.course_id = c.id
+    LEFT JOIN enrollments e
+        ON e.course_id = s.course_id
     LEFT JOIN attendance a
         ON s.id = a.session_id
+        AND a.student_id = e.student_id
         AND a.status = 'present'
     WHERE s.created_by = ?
       AND (? = 0 OR s.course_id = ?)
@@ -115,17 +120,24 @@ if ($selected_session > 0) {
                 u.id AS student_id,
                 u.fullname,
                 u.email,
-                a.status,
+                COALESCE(a.status, 'absent') AS status,
                 a.scan_time
-            FROM attendance a
+            FROM enrollments e
             INNER JOIN users u
-                ON a.student_id = u.id
-            WHERE a.session_id = ?
-            ORDER BY a.scan_time ASC
+                ON e.student_id = u.id
+            LEFT JOIN attendance a
+                ON a.session_id = ?
+                AND a.student_id = e.student_id
+            WHERE e.course_id = (
+                SELECT course_id
+                FROM attendance_sessions
+                WHERE id = ?
+            )
+            ORDER BY (a.status IS NULL) DESC, u.fullname ASC
         ";
 
         $students_stmt = $conn->prepare($students_sql);
-        $students_stmt->bind_param("i", $selected_session);
+        $students_stmt->bind_param("ii", $selected_session, $selected_session);
         $students_stmt->execute();
         $students = $students_stmt->get_result();
     }
@@ -386,7 +398,7 @@ function attendanceStatusBadge($status)
                                                     </td>
 
                                                     <td>
-                                                        <?php echo htmlspecialchars($student['scan_time']); ?>
+                                                        <?php echo $student['scan_time'] ? htmlspecialchars($student['scan_time']) : '<span class="text-muted">Not scanned</span>'; ?>
                                                     </td>
 
                                                 </tr>
@@ -405,10 +417,10 @@ function attendanceStatusBadge($status)
 
                                     <i class="bi bi-clipboard-x display-4 text-muted"></i>
 
-                                    <h5 class="mt-3">No attendance recorded</h5>
+                                    <h5 class="mt-3">No students registered</h5>
 
                                     <p class="text-muted mb-0">
-                                        No students have marked attendance for this session yet.
+                                        No students are currently registered in this course.
                                     </p>
 
                                 </div>
@@ -490,7 +502,9 @@ function attendanceStatusBadge($status)
                                             <th>Code</th>
                                             <th>Date</th>
                                             <th>Session</th>
-                                            <th>Students Present</th>
+                                            <th>Registered</th>
+                                            <th>Present</th>
+                                            <th>Absent</th>
                                             <th>Status</th>
                                             <th>Action</th>
                                         </tr>
@@ -525,7 +539,19 @@ function attendanceStatusBadge($status)
 
                                                 <td>
                                                     <strong>
+                                                        <?php echo (int) $row['students_registered']; ?>
+                                                    </strong>
+                                                </td>
+
+                                                <td>
+                                                    <strong>
                                                         <?php echo (int) $row['students_present']; ?>
+                                                    </strong>
+                                                </td>
+
+                                                <td>
+                                                    <strong class="text-danger">
+                                                        <?php echo (int) $row['students_absent']; ?>
                                                     </strong>
                                                 </td>
 
