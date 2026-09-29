@@ -1,5 +1,8 @@
 <?php
 // Shared page header
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 ?>
 
 <!DOCTYPE html>
@@ -30,6 +33,12 @@ rel="stylesheet">
 <link rel="stylesheet" href="assets/dashboard.css?v=3">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted) {
+            window.location.reload();
+        }
+    });
+
     document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('.responsive-card-table').forEach(function (table) {
             const headers = Array.from(table.querySelectorAll('thead th')).map(function (th) {

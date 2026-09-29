@@ -1,6 +1,15 @@
 <?php
 session_start();
 
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'student') {
+    header('Location: login.php');
+    exit;
+}
+
 include "db.php";
 include "includes/header.php";
 include "includes/sidebar.php";
@@ -76,7 +85,7 @@ if ($chartStmt) {
 
             <p>
                 Welcome back,
-                <strong><?php echo $_SESSION['fullname']; ?></strong>
+                <strong><?php echo htmlspecialchars((string) ($_SESSION['fullname'] ?? 'Student'), ENT_QUOTES, 'UTF-8'); ?></strong>
             </p>
 
         </div>
@@ -371,5 +380,4 @@ new Chart(ctx, {
 });
 
 </script>
-
 
