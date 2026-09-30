@@ -149,16 +149,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $qr_token = bin2hex(random_bytes(16));
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | Session Expiry - 10 Minutes
-            |--------------------------------------------------------------------------
-            */
-
-            $expires_at = date(
-                "Y-m-d H:i:s",
-                strtotime("+10 minutes")
-            );
+            // The session remains active until the lecturer explicitly ends it.
+            $expires_at = null;
 
 
             /*
@@ -191,19 +183,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     longitude,
                     radius
                 )
-                VALUES (?, ?, ?, ?, CURDATE(), ?, 'active', ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, CURDATE(), NULL, 'active', ?, ?, ?, ?)
             ");
 
             if (!$stmt) {
                 $message = "Error preparing attendance session: " . $conn->error;
             } else {
                 $stmt->bind_param(
-                    "issisiddi",
+                    "issiiddi",
                     $course_id,
                     $session_code,
                     $qr_token,
                     $qr_refresh_seconds,
-                    $expires_at,
                     $created_by,
                     $latitude,
                     $longitude,
@@ -212,6 +203,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 if ($stmt->execute()) {
                     $created_session_id = (int) $conn->insert_id;
+                    $_SESSION['active_attendance_session_id'] = $created_session_id;
                     $message = "Attendance Session Started Successfully!";
                 } else {
                     $message = "Error creating attendance session: " . $stmt->error;
@@ -224,6 +216,36 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     }
 
+}
+
+// Reopen the lecturer's active session when returning from another page.
+if ($_SERVER["REQUEST_METHOD"] !== "POST" && !empty($_SESSION['active_attendance_session_id'])) {
+    $restoreId = (int) $_SESSION['active_attendance_session_id'];
+    $restore = $conn->prepare(
+        "SELECT id, session_code, qr_token, qr_refresh_seconds, expires_at,
+                latitude, longitude, radius
+         FROM attendance_sessions
+         WHERE id = ? AND created_by = ? AND status = 'active'
+         LIMIT 1"
+    );
+    if ($restore) {
+        $restore->bind_param('ii', $restoreId, $lecturer_id);
+        $restore->execute();
+        $active = $restore->get_result()->fetch_assoc() ?: null;
+        $restore->close();
+        if ($active) {
+            $created_session_id = (int) $active['id'];
+            $session_code = (string) $active['session_code'];
+            $qr_token = (string) $active['qr_token'];
+            $qr_refresh_seconds = normalizeQrRefreshSeconds((int) $active['qr_refresh_seconds']);
+            $expires_at = $active['expires_at'];
+            $latitude = (string) $active['latitude'];
+            $longitude = (string) $active['longitude'];
+            $radius = (string) $active['radius'];
+        } else {
+            unset($_SESSION['active_attendance_session_id']);
+        }
+    }
 }
 
 ?>
@@ -792,11 +814,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                                     <br>
 
-                                    <?php
-                                    echo htmlspecialchars(
-                                        $expires_at
-                                    );
-                                    ?>
+                                    <?php echo $expires_at
+                                        ? htmlspecialchars((string) $expires_at)
+                                        : 'Until closed by lecturer'; ?>
 
                                 </p>
 

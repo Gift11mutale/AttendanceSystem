@@ -65,4 +65,4 @@ On a phone, open the site with `https://scanattend.site.je`, enable Location Ser
 
 ## Rotating classroom QR codes
 
-Run `database/attendance_qr_rotation.sql` once against the application database. Lecturers can choose a QR refresh interval from **15 to 300 seconds** when starting a session. The QR value is generated server-side and changes automatically; the current and immediately previous interval are accepted to allow for scan/network delay. Students must still be logged in, enrolled, and submit before the attendance session expires. Lecturers can end an active session immediately with the **End Attendance Session** button.
+Run `database/attendance_qr_rotation.sql` once against the application database. Lecturers can choose a QR refresh interval from **15 to 300 seconds** when starting a session. The QR value is generated server-side and changes automatically; the current and immediately previous interval are accepted to allow for scan/network delay. Sessions remain active until the lecturer uses the **End Attendance Session** button. Students must still be logged in and enrolled.
