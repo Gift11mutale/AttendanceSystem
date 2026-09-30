@@ -840,6 +840,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                     alt="Attendance QR Code"
                                     class="img-fluid">
 
+                                <div class="mt-3 text-start">
+                                    <label for="rotatingQrToken" class="form-label fw-semibold">
+                                        Manual Entry Token
+                                    </label>
+                                    <div class="input-group">
+                                        <input
+                                            type="text"
+                                            id="rotatingQrToken"
+                                            class="form-control font-monospace small"
+                                            value="<?php echo htmlspecialchars(currentAttendanceQrToken($qr_token, $created_session_id, $qr_refresh_seconds), ENT_QUOTES, 'UTF-8'); ?>"
+                                            readonly>
+                                        <button type="button" id="copyRotatingQrToken" class="btn btn-outline-secondary">
+                                            <i class="bi bi-clipboard me-1"></i>Copy
+                                        </button>
+                                    </div>
+                                    <div class="form-text">This token changes with the QR code. Give students the current value only.</div>
+                                </div>
+
                                 <form method="post" action="end_session.php" class="mt-3" onsubmit="return confirm('End this attendance session now? Students will no longer be able to scan it.');">
                                     <input type="hidden" name="session_id" value="<?php echo (int) $created_session_id; ?>">
                                     <button type="submit" class="btn btn-danger">
@@ -1135,7 +1153,9 @@ document
     const sessionId = <?php echo (int) $created_session_id; ?>;
     const image = document.getElementById('attendanceQrImage');
     const status = document.getElementById('qrRotationStatus');
-    if (!image || !status) return;
+    const tokenField = document.getElementById('rotatingQrToken');
+    const copyButton = document.getElementById('copyRotatingQrToken');
+    if (!image || !status || !tokenField) return;
 
     async function refreshQr() {
         try {
@@ -1147,6 +1167,7 @@ document
                 return;
             }
             image.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(data.token)}&t=${Date.now()}`;
+            tokenField.value = data.token;
             status.textContent = `New QR code in ${data.seconds_remaining}s (refreshes every ${data.refresh_seconds}s)`;
             status.className = 'small text-success mb-2';
         } catch (error) {
@@ -1154,6 +1175,19 @@ document
             status.className = 'small text-danger mb-2';
         }
     }
+
+    copyButton?.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(tokenField.value);
+            copyButton.innerHTML = '<i class="bi bi-check2 me-1"></i>Copied';
+            window.setTimeout(() => {
+                copyButton.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copy';
+            }, 1500);
+        } catch (error) {
+            tokenField.select();
+            document.execCommand('copy');
+        }
+    });
 
     refreshQr();
     window.setInterval(refreshQr, 1000);
