@@ -765,6 +765,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                     Every <?php echo (int) $qr_refresh_seconds; ?> seconds
                                 </p>
 
+                                <div class="mb-3">
+                                    <label for="rotatingQrToken" class="form-label fw-semibold">
+                                        Manual Entry Token
+                                    </label>
+                                    <div class="input-group">
+                                        <input
+                                            type="text"
+                                            id="rotatingQrToken"
+                                            class="form-control font-monospace small"
+                                            value="<?php echo htmlspecialchars(currentAttendanceQrToken($qr_token, $created_session_id, $qr_refresh_seconds), ENT_QUOTES, 'UTF-8'); ?>"
+                                            readonly>
+                                        <button type="button" id="copyRotatingQrToken" class="btn btn-outline-secondary">
+                                            <i class="bi bi-clipboard me-1"></i>Copy
+                                        </button>
+                                    </div>
+                                    <div class="form-text">Changes with the QR code.</div>
+                                </div>
+
 
                                 <p>
 
@@ -839,24 +857,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                     src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=<?php echo urlencode(currentAttendanceQrToken($qr_token, $created_session_id, $qr_refresh_seconds)); ?>"
                                     alt="Attendance QR Code"
                                     class="img-fluid">
-
-                                <div class="mt-3 text-start">
-                                    <label for="rotatingQrToken" class="form-label fw-semibold">
-                                        Manual Entry Token
-                                    </label>
-                                    <div class="input-group">
-                                        <input
-                                            type="text"
-                                            id="rotatingQrToken"
-                                            class="form-control font-monospace small"
-                                            value="<?php echo htmlspecialchars(currentAttendanceQrToken($qr_token, $created_session_id, $qr_refresh_seconds), ENT_QUOTES, 'UTF-8'); ?>"
-                                            readonly>
-                                        <button type="button" id="copyRotatingQrToken" class="btn btn-outline-secondary">
-                                            <i class="bi bi-clipboard me-1"></i>Copy
-                                        </button>
-                                    </div>
-                                    <div class="form-text">This token changes with the QR code. Give students the current value only.</div>
-                                </div>
 
                                 <form method="post" action="end_session.php" class="mt-3" onsubmit="return confirm('End this attendance session now? Students will no longer be able to scan it.');">
                                     <input type="hidden" name="session_id" value="<?php echo (int) $created_session_id; ?>">
