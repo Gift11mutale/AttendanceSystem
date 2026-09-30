@@ -589,9 +589,6 @@ scanner.render(
 </script>
 
 
-</body>
-
-</html>
 <script>
 (() => {
     const preview = document.getElementById('locationPreview');
@@ -734,3 +731,7 @@ scanner.render(
     window.__gpsSubmitQRToken = checkAndSubmit;
 })();
 </script>
+
+</body>
+
+</html>
