@@ -15,7 +15,9 @@ $lecturer_id = $_SESSION['user_id'];
 <link rel="icon" type="image/png" href="assets/images/favicon.png">
 <title>Attendance Report</title>
 <link rel="stylesheet" href="main.css/main.css">
-</head>
+
+<link rel="stylesheet" href="assets/css/custom-popups.css">
+<script src="assets/js/custom-popups.js" defer></script></head>
 
 <body>
 

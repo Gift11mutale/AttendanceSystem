@@ -286,7 +286,9 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" && !empty($_SESSION['active_attendance
         rel="stylesheet"
         href="assets/dashboard.css?v=3">
 
-</head>
+
+<link rel="stylesheet" href="assets/css/custom-popups.css">
+<script src="assets/js/custom-popups.js" defer></script></head>
 
 
 <body>

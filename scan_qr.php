@@ -289,7 +289,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <!-- QR Scanner -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
-</head>
+
+<link rel="stylesheet" href="assets/css/custom-popups.css">
+<script src="assets/js/custom-popups.js" defer></script></head>
 
 <body>
 
