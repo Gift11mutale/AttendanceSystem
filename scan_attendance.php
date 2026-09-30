@@ -348,8 +348,33 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 </head>
 
-
 <body>
+
+<?php if ($message_type === "success"): ?>
+<div id="attendanceSuccessPopup" class="attendance-success-popup" role="dialog" aria-modal="true" aria-labelledby="attendanceSuccessTitle">
+    <div class="attendance-success-card">
+        <div class="attendance-success-icon"><i class="bi bi-check-lg"></i></div>
+        <h3 id="attendanceSuccessTitle">Attendance Recorded!</h3>
+        <p>Your attendance has been successfully recorded.</p>
+        <div class="attendance-success-detail"><?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?></div>
+        <button type="button" id="closeAttendanceSuccess" class="btn btn-success px-4">Continue</button>
+    </div>
+</div>
+<style>
+.attendance-success-popup { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(8, 35, 26, .58); }
+.attendance-success-card { width: min(430px, 100%); padding: 2rem; text-align: center; background: #fff; border-radius: 22px; box-shadow: 0 18px 60px rgba(0,0,0,.25); animation: attendancePopupIn .22s ease-out; }
+.attendance-success-icon { width: 68px; height: 68px; margin: 0 auto 1rem; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #198754; font-size: 2rem; }
+.attendance-success-card h3 { color: #146c43; margin-bottom: .5rem; }
+.attendance-success-card p { margin-bottom: .75rem; color: #495057; }
+.attendance-success-detail { margin-bottom: 1.25rem; padding: .75rem; border-radius: 10px; color: #146c43; background: #e9f7ef; font-size: .9rem; }
+@keyframes attendancePopupIn { from { opacity: 0; transform: translateY(12px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+</style>
+<script>
+document.getElementById('closeAttendanceSuccess')?.addEventListener('click', () => {
+    document.getElementById('attendanceSuccessPopup')?.remove();
+});
+</script>
+<?php endif; ?>
 
 
 <div class="page-container">
