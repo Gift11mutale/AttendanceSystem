@@ -219,6 +219,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                         $message =
                             "You have already marked attendance for this session.";
+                        $message_type = "warning";
                     }
 
 
@@ -321,6 +322,20 @@ document.getElementById('closeAttendanceSuccess')?.addEventListener('click', () 
 </script>
 <?php endif; ?>
 
+<?php if (!empty($message) && $message_type !== "success"): ?>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof window.showCustomPopup === 'function') {
+        window.showCustomPopup(
+            <?php echo json_encode($message, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>,
+            <?php echo json_encode($message_type); ?>,
+            <?php echo json_encode($message_type === 'warning' ? 'Attendance Not Recorded' : 'Attendance Error'); ?>
+        );
+    }
+});
+</script>
+<?php endif; ?>
+
 
 <div class="container-fluid">
 
@@ -392,6 +407,7 @@ document.getElementById('closeAttendanceSuccess')?.addEventListener('click', () 
 
                                 <div
                                     class="alert alert-<?php echo $message_type; ?>"
+                                    data-popup-ignore="true"
                                 >
 
                                     <?php if ($message_type === "success"): ?>

@@ -378,6 +378,20 @@ document.getElementById('closeAttendanceSuccess')?.addEventListener('click', () 
 </script>
 <?php endif; ?>
 
+<?php if ($message !== "" && $message_type !== "success"): ?>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof window.showCustomPopup === 'function') {
+        window.showCustomPopup(
+            <?php echo json_encode($message, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>,
+            <?php echo json_encode($message_type ?: 'danger'); ?>,
+            <?php echo json_encode($message_type === 'warning' ? 'Attendance Not Recorded' : 'Attendance Error'); ?>
+        );
+    }
+});
+</script>
+<?php endif; ?>
+
 
 <div class="page-container">
 
@@ -410,6 +424,7 @@ document.getElementById('closeAttendanceSuccess')?.addEventListener('click', () 
 
                 <div
                     class="alert alert-<?php echo $message_type; ?> text-center"
+                    data-popup-ignore="true"
                 >
 
                     <?php echo $message; ?>
