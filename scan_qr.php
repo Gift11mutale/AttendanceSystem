@@ -32,22 +32,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         $message = "Please enter or scan the QR token.";
 
-    } elseif (
-        $student_latitude === '' ||
-        $student_longitude === '' ||
-        !is_numeric($student_latitude) ||
-        !is_numeric($student_longitude)
-    ) {
-
-        $message = "Your location could not be detected. Please allow location access.";
-
     } else {
-
-        $student_latitude = (float) $student_latitude;
-        $student_longitude = (float) $student_longitude;
-        if (!validGpsCoordinates($student_latitude, $student_longitude)) {
-            $message = "The GPS coordinates are invalid. Please try again.";
-        } else {
 
         /*
         |--------------------------------------------------------------------------
@@ -62,14 +47,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $session_id = $session['id'];
             $course_id = $session['course_id'];
 
-            $class_latitude = (float) $session['latitude'];
-            $class_longitude = (float) $session['longitude'];
-            $radius = (int) $session['radius'];
-
-
             /*
             |--------------------------------------------------------------------------
-            | Check Session Expiry
+            | Check Session Expiry (Radius limitation removed)
             |--------------------------------------------------------------------------
             */
 
@@ -140,79 +120,42 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                         /*
                         |--------------------------------------------------------------------------
-                        | GPS DISTANCE CALCULATION
+                        | Insert Attendance
                         |--------------------------------------------------------------------------
                         */
 
-                        $distance = gpsDistanceMeters(
-                            $class_latitude,
-                            $class_longitude,
-                            $student_latitude,
-                            $student_longitude
+                        $insert = $conn->prepare("
+                            INSERT INTO attendance
+                            (
+                                session_id,
+                                student_id,
+                                status
+                            )
+                            VALUES (?, ?, 'present')
+                        ");
+
+                        $insert->bind_param(
+                            "ii",
+                            $session_id,
+                            $student_id
                         );
 
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Check Attendance Radius
-                        |--------------------------------------------------------------------------
-                        */
-
-                        if ($distance > $radius) {
+                        if ($insert->execute()) {
 
                             $message =
-                                "Attendance rejected. You are approximately "
-                                . round($distance)
-                                . " meters away from the class location. "
-                                . "You must be within "
-                                . $radius
-                                . " meters.";
+                                "Attendance Marked Successfully!";
+
+                            $message_type = "success";
 
                         } else {
 
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | Insert Attendance
-                            |--------------------------------------------------------------------------
-                            */
-
-                            $insert = $conn->prepare("
-                                INSERT INTO attendance
-                                (
-                                    session_id,
-                                    student_id,
-                                    status
-                                )
-                                VALUES (?, ?, 'present')
-                            ");
-
-                            $insert->bind_param(
-                                "ii",
-                                $session_id,
-                                $student_id
-                            );
-
-
-                            if ($insert->execute()) {
-
-                                $message =
-                                    "Attendance Marked Successfully! "
-                                    . "You are approximately "
-                                    . round($distance)
-                                    . " meters from the class.";
-
-                                $message_type = "success";
-
-                            } else {
-
-                                $message =
-                                    "Error recording attendance.";
-                            }
-
-
-                            $insert->close();
+                            $message =
+                                "Error recording attendance.";
                         }
+
+
+                        $insert->close();
 
 
                     } else {
@@ -241,8 +184,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             $message =
                 "Invalid or Closed Session.";
-        }
-
         }
     }
 }
@@ -1071,18 +1012,15 @@ window.addEventListener("beforeunload", function () {
         );
         const withinRadius = distance <= Number(data.radius);
         distanceStatus.textContent = `Distance from class: ${Math.round(distance)}m | Allowed: ${data.radius}m`;
-        distanceStatus.className = `small mt-2 fw-semibold ${withinRadius ? 'text-success' : 'text-danger'}`;
+        distanceStatus.className = 'small mt-2 fw-semibold text-success';
         renderDistanceIndicator(distance, Number(data.radius));
-        submitButton.disabled = !withinRadius;
-        return withinRadius;
+        submitButton.disabled = false;
+        return true;
     }
 
     tokenInput.addEventListener('input', () => {
         lastPreviewToken = '';
-        previewDistance().catch(() => {
-            distanceStatus.textContent = 'Unable to check the class location.';
-            distanceStatus.className = 'small mt-2 fw-semibold text-danger';
-        });
+        previewDistance().catch(() => {});
     });
 
     formElement.addEventListener('submit', async (event) => {
@@ -1092,16 +1030,9 @@ window.addEventListener("beforeunload", function () {
             alert('Please scan or enter the QR token first.');
             return;
         }
-        try {
-            const allowed = await previewDistance();
-            if (!allowed) return;
-            submitting = true;
-            submitButton.disabled = true;
-            HTMLFormElement.prototype.submit.call(formElement);
-        } catch (error) {
-            distanceStatus.textContent = 'Unable to verify your distance. Please try again.';
-            distanceStatus.className = 'small mt-2 fw-semibold text-danger';
-        }
+        submitting = true;
+        submitButton.disabled = true;
+        HTMLFormElement.prototype.submit.call(formElement);
     });
 
     const originalScanSuccess = window.onQrScanSuccess;

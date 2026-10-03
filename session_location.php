@@ -27,15 +27,9 @@ if (!$session || (!empty($session['expires_at']) && strtotime((string) $session[
     exit;
 }
 
-if (!is_numeric($session['latitude']) || !is_numeric($session['longitude']) || (int) $session['radius'] <= 0 || !validGpsCoordinates((float) $session['latitude'], (float) $session['longitude'])) {
-    http_response_code(422);
-    echo json_encode(['ok' => false, 'message' => 'This session does not have a valid GPS location.']);
-    exit;
-}
-
 echo json_encode([
     'ok' => true,
-    'latitude' => (float) $session['latitude'],
-    'longitude' => (float) $session['longitude'],
-    'radius' => (int) $session['radius'],
+    'latitude' => is_numeric($session['latitude'] ?? null) ? (float) $session['latitude'] : null,
+    'longitude' => is_numeric($session['longitude'] ?? null) ? (float) $session['longitude'] : null,
+    'radius' => (int) ($session['radius'] ?? 0),
 ]);

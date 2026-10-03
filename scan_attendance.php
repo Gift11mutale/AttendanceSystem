@@ -25,29 +25,13 @@ $message_type = "";
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $qr_token = trim($_POST['qr_token'] ?? '');
-    $student_latitude = $_POST['latitude'] ?? '';
-    $student_longitude = $_POST['longitude'] ?? '';
 
     if ($qr_token === '') {
 
         $message = "No QR code was detected.";
         $message_type = "danger";
 
-    } elseif (
-        $student_latitude === '' ||
-        $student_longitude === '' ||
-        !is_numeric($student_latitude) ||
-        !is_numeric($student_longitude)
-    ) {
-        $message = "Your location is required. Please allow location access.";
-        $message_type = "danger";
     } else {
-        $student_latitude = (float) $student_latitude;
-        $student_longitude = (float) $student_longitude;
-        if (!validGpsCoordinates($student_latitude, $student_longitude)) {
-            $message = "The GPS coordinates are invalid. Please try again.";
-            $message_type = "danger";
-        } else {
 
         /*
         |--------------------------------------------------------------------------
@@ -66,30 +50,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             $session_id = $session['id'];
             $course_id = $session['course_id'];
-            $class_latitude = (float) $session['latitude'];
-            $class_longitude = (float) $session['longitude'];
-            $radius = (int) $session['radius'];
-            $distance = gpsDistanceMeters(
-                $class_latitude,
-                $class_longitude,
-                $student_latitude,
-                $student_longitude
-            );
-
 
             /*
             |--------------------------------------------------------------------------
-            | CHECK EXPIRY
+            | CHECK EXPIRY (Radius limitation removed)
             |--------------------------------------------------------------------------
             */
 
-            if ($distance > $radius) {
-                $message = "Attendance rejected. You are approximately "
-                    . round($distance)
-                    . " meters away. You must be within "
-                    . $radius . " meters.";
-                $message_type = "danger";
-            } elseif (
+            if (
                 !empty($session['expires_at']) &&
                 strtotime($session['expires_at']) < time()
             ) {
@@ -220,8 +188,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 $checkEnroll->close();
             }
-        }
-
         }
     }
 }
@@ -446,6 +412,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             </div>
 
+            <div id="scannerControls" class="text-center mt-2" style="display:none;">
+                <button type="button" class="btn btn-sm btn-outline-success" id="resumeScannerBtn">
+                    <i class="bi bi-camera"></i> Scan Another QR Code
+                </button>
+            </div>
+
 
             <hr class="my-4">
 
@@ -471,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 <form method="POST" id="alternateAttendanceForm">
 
-                    <div id="locationPreview" class="alert alert-info small">Detecting your location...</div>
+                    <div id="locationPreview" class="alert alert-info small">Ready to scan QR code or enter token.</div>
 
                     <input
                         type="text"
@@ -521,214 +493,243 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 <script>
-
-function submitQRToken(token) {
-
-    if (typeof window.__gpsSubmitQRToken === "function") {
-        window.__gpsSubmitQRToken(token);
-        return;
-    }
-
-    document.getElementById("scannerMessage").innerHTML =
-        "<strong class='text-primary'>Preparing GPS verification...</strong>";
-
-    window.setTimeout(function () {
-        submitQRToken(token);
-    }, 100);
-
-}
-
-
-function onScanSuccess(decodedText, decodedResult) {
-
-    document.getElementById("scannerMessage").innerHTML =
-        "<strong class='text-success'>QR code detected. Recording attendance...</strong>";
-
-
-    submitQRToken(decodedText);
-
-}
-
-
-function onScanFailure(error) {
-
-    // Keep scanning.
-
-}
-
-
-const qrBoxSize = Math.min(250, Math.max(180, window.innerWidth - 96));
-
-const scanner = new Html5QrcodeScanner(
-
-    "reader",
-
-    {
-
-        fps: 10,
-
-        qrbox: {
-            width: qrBoxSize,
-            height: qrBoxSize
-        },
-
-        rememberLastUsedCamera: true
-
-    },
-
-    false
-
-);
-
-
-scanner.render(
-    onScanSuccess,
-    onScanFailure
-);
-
-</script>
-
-
-<script>
 (() => {
     const preview = document.getElementById('locationPreview');
     const scannerMessage = document.getElementById('scannerMessage');
     const manualForm = document.getElementById('alternateAttendanceForm');
-    const manualToken = manualForm.querySelector('input[name="qr_token"]');
+    const manualToken = manualForm ? manualForm.querySelector('input[name="qr_token"]') : null;
+    const resumeBtn = document.getElementById('resumeScannerBtn');
+    const scannerControls = document.getElementById('scannerControls');
+
     let currentPosition = null;
     let submitting = false;
+    let lastScannedToken = '';
+    let lastScanTimestamp = 0;
+    let scanner = null;
 
-    function renderDistanceIndicator(distance, radius) {
-        let indicator = document.getElementById('distanceIndicator');
-        if (!indicator) {
-            indicator = document.createElement('div');
-            indicator.id = 'distanceIndicator';
-            indicator.className = 'mt-2';
-            preview.insertAdjacentElement('afterend', indicator);
-        }
-        const percentage = Math.min(100, Math.max(0, (distance / radius) * 100));
-        const inside = distance <= radius;
-        const color = inside ? '#198754' : '#dc3545';
-        indicator.innerHTML = `
-            <div class="d-flex justify-content-between small mb-1">
-                <span>${inside ? 'Inside attendance radius' : 'Outside attendance radius'}</span>
-                <strong>${Math.round(distance)}m / ${radius}m</strong>
-            </div>
-            <div style="height:12px;background:#e9ecef;border-radius:999px;overflow:hidden">
-                <div style="height:100%;width:${percentage}%;background:${color};transition:width .35s ease,background .35s ease"></div>
-            </div>
-            <div class="small text-muted mt-1">Distance is checked against the class radius.</div>`;
-    }
-
-    function distanceMeters(lat1, lon1, lat2, lon2) {
-        const radians = Math.PI / 180;
-        const a = Math.sin((lat2 - lat1) * radians / 2) ** 2
-            + Math.cos(lat1 * radians) * Math.cos(lat2 * radians)
-            * Math.sin((lon2 - lon1) * radians / 2) ** 2;
-        return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    function updateHiddenInputs(pos) {
+        if (!pos || !pos.coords) return;
+        const latInput = document.getElementById('alternateLatitude');
+        const lngInput = document.getElementById('alternateLongitude');
+        if (latInput) latInput.value = pos.coords.latitude;
+        if (lngInput) lngInput.value = pos.coords.longitude;
     }
 
     function locate() {
         return new Promise((resolve, reject) => {
-            if (!window.isSecureContext) {
-                reject(new Error('Location requires HTTPS. Open https://scanattend.site.je in your browser.'));
-                return;
-            }
             if (!navigator.geolocation) {
                 reject(new Error('GPS is not supported by this browser.'));
                 return;
             }
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 0
-            });
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve(pos),
+                (geoError) => reject(geoError),
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 30000
+                }
+            );
         });
-    }
-
-    async function ensureLocation() {
-        if (!currentPosition) {
-            preview.textContent = 'Detecting your location...';
-            currentPosition = await locate();
-        }
-        preview.textContent = 'Location ready. Distance will be checked against the class radius.';
-        return currentPosition;
     }
 
     async function checkAndSubmit(token) {
         if (submitting) return;
-        token = token.trim();
+
+        token = (token || '').trim();
         if (!token) {
-            preview.textContent = 'Please scan or enter the QR token first.';
+            if (preview) {
+                preview.textContent = 'Please scan or enter the QR token first.';
+                preview.className = 'alert alert-warning small';
+            }
+            if (scannerMessage) {
+                scannerMessage.innerHTML = "<strong class='text-warning'>Please scan or enter the QR token first.</strong>";
+            }
             return;
         }
+
+        submitting = true;
+
         try {
-            scannerMessage.innerHTML = "<strong class='text-primary'>Checking GPS and class distance...</strong>";
-            const position = await ensureLocation();
-            preview.textContent = 'Checking distance from the class...';
-            const response = await fetch('session_location.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ qr_token: token })
-            });
-            const data = await response.json();
-            if (!response.ok || !data.ok) throw new Error(data.message || 'Invalid or expired attendance session.');
-            const distance = distanceMeters(
-                Number(data.latitude), Number(data.longitude),
-                position.coords.latitude, position.coords.longitude
-            );
-            preview.textContent = `Distance from class: ${Math.round(distance)}m | Allowed: ${data.radius}m`;
-            preview.className = `alert small ${distance <= Number(data.radius) ? 'alert-success' : 'alert-danger'}`;
-            renderDistanceIndicator(distance, Number(data.radius));
-            if (distance > Number(data.radius)) {
-                preview.textContent += ' — attendance cannot be submitted outside the allowed radius.';
-                return;
+            if (scannerMessage) {
+                scannerMessage.innerHTML = "<strong class='text-primary'>Recording attendance...</strong>";
             }
-            submitting = true;
-            scannerMessage.innerHTML = "<strong class='text-success'>Location verified. Recording attendance...</strong>";
-            const response = await fetch('scan_attendance.php', {
+            if (preview) {
+                preview.textContent = 'Submitting attendance...';
+                preview.className = 'alert alert-info small';
+            }
+
+            const bodyParams = { qr_token: token };
+            if (currentPosition && currentPosition.coords) {
+                bodyParams.latitude = currentPosition.coords.latitude;
+                bodyParams.longitude = currentPosition.coords.longitude;
+            }
+
+            const attendanceResponse = await fetch('scan_attendance.php', {
                 method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json'
                 },
-                body: new URLSearchParams({
-                    qr_token: token,
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude
-                })
+                body: new URLSearchParams(bodyParams)
             });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.message || 'Attendance could not be submitted.');
-            const title = result.type === 'success'
+
+            const result = await attendanceResponse.json();
+            if (!result || typeof result !== 'object') {
+                throw new Error('Attendance could not be processed. Please try again.');
+            }
+
+            const isSuccess = Boolean(result.ok) || result.type === 'success';
+            const isWarning = result.type === 'warning';
+            const title = isSuccess
                 ? 'Attendance Recorded'
-                : result.type === 'warning' ? 'Already Scanned' : 'Attendance Error';
-            window.showCustomPopup(result.message, result.type, title);
-            scannerMessage.innerHTML = `<strong class="${result.type === 'success' ? 'text-success' : 'text-warning'}">${title}.</strong>`;
+                : (isWarning ? 'Already Scanned' : 'Attendance Error');
+            const alertClass = isSuccess ? 'alert-success' : (isWarning ? 'alert-warning' : 'alert-danger');
+            const textClass = isSuccess ? 'text-success' : (isWarning ? 'text-warning' : 'text-danger');
+
+            if (preview) {
+                preview.textContent = result.message || title;
+                preview.className = `alert ${alertClass} small`;
+            }
+            if (scannerMessage) {
+                scannerMessage.innerHTML = `<strong class="${textClass}">${title}: ${result.message || ''}</strong>`;
+            }
+
+            if (typeof window.showCustomPopup === 'function') {
+                window.showCustomPopup(result.message || title, result.type || (isSuccess ? 'success' : 'danger'), title);
+            }
+
+            if (isSuccess) {
+                try {
+                    if (scanner && typeof scanner.pause === 'function') {
+                        scanner.pause(true);
+                    }
+                    if (scannerControls) {
+                        scannerControls.style.display = 'block';
+                    }
+                } catch (e) {
+                    console.warn('Could not pause scanner:', e);
+                }
+            }
+
             submitting = false;
         } catch (error) {
             submitting = false;
-            scannerMessage.innerHTML = "<strong class='text-danger'>Attendance could not be submitted.</strong>";
-            preview.textContent = error.message || 'Unable to verify your location.';
-            preview.className = 'alert alert-danger small';
+            const errMsg = error.message || 'Unable to submit attendance.';
+            if (scannerMessage) {
+                scannerMessage.innerHTML = `<strong class='text-danger'>${errMsg}</strong>`;
+            }
+            if (preview) {
+                preview.textContent = errMsg;
+                preview.className = 'alert alert-danger small';
+            }
+            if (typeof window.showCustomPopup === 'function') {
+                window.showCustomPopup(errMsg, 'danger', 'Attendance Error');
+            }
         }
     }
 
-    navigator.geolocation && locate().then((position) => {
-        currentPosition = position;
-        preview.textContent = 'Location ready. Distance will be checked against the class radius.';
-        preview.className = 'alert alert-info small';
-    }).catch((error) => {
-        preview.textContent = error.message || 'Please allow location access.';
-        preview.className = 'alert alert-warning small';
-    });
+    function submitQRToken(token) {
+        checkAndSubmit(token);
+    }
 
-    manualForm.addEventListener('submit', (event) => {
-        event.preventDefault();
-        checkAndSubmit(manualToken.value);
-    });
+    function onScanSuccess(decodedText, decodedResult) {
+        const token = (decodedText || '').trim();
+        if (!token) return;
 
+        const now = Date.now();
+        if (token === lastScannedToken && (now - lastScanTimestamp) < 3000) {
+            return;
+        }
+        lastScannedToken = token;
+        lastScanTimestamp = now;
+
+        if (scannerMessage) {
+            scannerMessage.innerHTML = "<strong class='text-success'>QR code detected. Submitting attendance...</strong>";
+        }
+
+        submitQRToken(token);
+    }
+
+    function onScanFailure(error) {
+        // Normal frame-by-frame scan failures are ignored.
+    }
+
+    // Expose for compatibility and manual calls
     window.__gpsSubmitQRToken = checkAndSubmit;
+    window.submitQRToken = submitQRToken;
+
+    // Handle manual submission form
+    if (manualForm) {
+        manualForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            if (manualToken) {
+                checkAndSubmit(manualToken.value);
+            }
+        });
+    }
+
+    // Resume button
+    if (resumeBtn) {
+        resumeBtn.addEventListener('click', () => {
+            try {
+                if (scanner && typeof scanner.resume === 'function') {
+                    scanner.resume();
+                }
+            } catch (e) {
+                console.warn('Could not resume scanner:', e);
+            }
+            if (scannerControls) {
+                scannerControls.style.display = 'none';
+            }
+            lastScannedToken = '';
+            submitting = false;
+            if (scannerMessage) {
+                scannerMessage.innerHTML = 'Point your camera at the lecturer\'s QR code.';
+            }
+            if (preview) {
+                preview.textContent = 'Ready to scan QR code or enter token.';
+                preview.className = 'alert alert-info small';
+            }
+        });
+    }
+
+    // Optional background location warmup
+    if (navigator.geolocation) {
+        locate().then((position) => {
+            currentPosition = position;
+            updateHiddenInputs(position);
+        }).catch(() => {
+            // Geolocation is optional
+        });
+    }
+
+    // Initialize Html5QrcodeScanner
+    try {
+        const qrBoxSize = Math.min(250, Math.max(180, window.innerWidth - 96));
+        scanner = new Html5QrcodeScanner(
+            "reader",
+            {
+                fps: 10,
+                qrbox: {
+                    width: qrBoxSize,
+                    height: qrBoxSize
+                },
+                rememberLastUsedCamera: true
+            },
+            false
+        );
+
+        scanner.render(
+            onScanSuccess,
+            onScanFailure
+        );
+    } catch (err) {
+        console.error('Failed to initialize QR scanner:', err);
+        if (scannerMessage) {
+            scannerMessage.innerHTML = "<strong class='text-danger'>Could not initialize camera scanner. Use manual token entry below.</strong>";
+        }
+    }
 })();
 </script>
 
