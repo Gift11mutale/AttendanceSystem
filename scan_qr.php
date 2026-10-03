@@ -902,29 +902,9 @@ window.addEventListener(
 
 /*
 |--------------------------------------------------------------------------
-| Prevent Submission Without GPS
+| Submission Form Handler (Radius limitation removed)
 |--------------------------------------------------------------------------
 */
-
-form.addEventListener(
-    "submit",
-    function(event) {
-
-        if (
-            latitudeInput.value === "" ||
-            longitudeInput.value === ""
-        ) {
-
-            event.preventDefault();
-
-            alert(
-                "Please allow location access before marking attendance."
-            );
-
-        }
-
-    }
-);
 
 
 /*

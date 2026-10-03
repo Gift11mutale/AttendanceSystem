@@ -880,7 +880,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" && !empty($_SESSION['active_attendance
                                     alt="Attendance QR Code"
                                     class="img-fluid">
 
-                                <form method="post" action="end_session.php" class="mt-3" onsubmit="return confirm('End this attendance session now? Students will no longer be able to scan it.');">
+                                <form method="post" action="end_session.php" class="mt-3" data-confirm="End this attendance session now? Students will no longer be able to scan it." data-confirm-title="End Attendance Session?" data-confirm-btn="End Session">
                                     <input type="hidden" name="session_id" value="<?php echo (int) $created_session_id; ?>">
                                     <button type="submit" class="btn btn-danger">
                                         <i class="bi bi-stop-circle me-2"></i>End Attendance Session

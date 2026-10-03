@@ -574,7 +574,7 @@ function attendanceStatusBadge($status)
 
                                                     </a>
                                                     <?php if ($row['status'] === 'active'): ?>
-                                                        <form method="post" action="end_session.php" class="d-inline" onsubmit="return confirm('End this attendance session now?');">
+                                                        <form method="post" action="end_session.php" class="d-inline" data-confirm="End this attendance session now?" data-confirm-title="End Attendance Session?" data-confirm-btn="End Session">
                                                             <input type="hidden" name="session_id" value="<?php echo (int) $row['session_id']; ?>">
                                                             <button type="submit" class="btn btn-sm btn-danger mt-1">
                                                                 <i class="bi bi-stop-circle me-1"></i>End

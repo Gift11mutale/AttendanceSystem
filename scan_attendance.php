@@ -339,7 +339,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.showCustomPopup(
             <?php echo json_encode($message, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>,
             <?php echo json_encode($message_type ?: 'danger'); ?>,
-            <?php echo json_encode($message_type === 'success' ? 'Attendance Recorded' : ($message_type === 'warning' ? 'Already Scanned' : 'Attendance Error')); ?>
+            <?php echo json_encode($message_type === 'success' ? 'Attendance Recorded' : ($message_type === 'warning' ? 'Already Scanned' : 'Attendance Error')); ?>,
+            <?php echo json_encode($message_type === 'success' ? ['buttonText' => 'Continue', 'secondaryButton' => ['text' => '<i class="bi bi-arrow-left"></i> Dashboard', 'href' => 'student_dashboard.php']] : (object)[]); ?>
         );
     }
 });
@@ -596,7 +597,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (typeof window.showCustomPopup === 'function') {
-                window.showCustomPopup(result.message || title, result.type || (isSuccess ? 'success' : 'danger'), title);
+                window.showCustomPopup(
+                    result.message || title,
+                    result.type || (isSuccess ? 'success' : 'danger'),
+                    title,
+                    isSuccess ? {
+                        buttonText: 'Continue',
+                        secondaryButton: {
+                            text: '<i class="bi bi-arrow-left"></i> Dashboard',
+                            href: 'student_dashboard.php'
+                        }
+                    } : {}
+                );
             }
 
             if (isSuccess) {
